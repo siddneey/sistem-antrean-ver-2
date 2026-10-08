@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\GrupModel;
 use App\Models\InstansiModel;
 use App\Models\KelompokModel;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class AdminGrupController extends BaseController
 {
@@ -24,32 +25,55 @@ class AdminGrupController extends BaseController
      *
      * Menampilkan seluruh grup.
      */
-    public function index()
+    public function index(): ResponseInterface
     {
         $grup = $this->grupModel
             ->select('id, kelompok_id, nama_grup, created_at, updated_at')
             ->findAll();
 
-        return $this->response->setJSON([
-            'status' => true,
-            'data'   => $grup,
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status' => true,
+                'data'   => $grup,
+            ]);
     }
 
     /**
      * POST /admin/grup
      *
      * Menambahkan grup baru.
+     *
+     * Request body:
+     * {
+     *     "nama_grup": "Grup Bapenda",
+     *     "kelompok_id": 1
+     * }
      */
-    public function create()
+    public function create(): ResponseInterface
     {
-        $namaGrup = trim(
-            (string) $this->request->getPost('nama_grup')
-        );
+        // Ambil data dari raw JSON
+        $input = $this->request->getJSON(true);
 
-        $kelompokId = $this->request->getPost('kelompok_id');
+        // Pastikan JSON valid
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
 
-        if ($namaGrup === '' || !$kelompokId) {
+        $namaGrup   = trim((string) ($input['nama_grup'] ?? ''));
+        $kelompokId = $input['kelompok_id'] ?? null;
+
+        // Validasi input wajib
+        if (
+            $namaGrup === '' ||
+            $kelompokId === null ||
+            $kelompokId === ''
+        ) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
@@ -58,7 +82,19 @@ class AdminGrupController extends BaseController
                 ]);
         }
 
-        // Validasi kelompok
+        // Pastikan kelompok ID valid
+        if (!is_numeric($kelompokId) || (int) $kelompokId <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'kelompok_id tidak valid.',
+                ]);
+        }
+
+        $kelompokId = (int) $kelompokId;
+
+        // Validasi kelompok harus ada
         if (!$this->kelompokModel->find($kelompokId)) {
             return $this->response
                 ->setStatusCode(404)
@@ -70,7 +106,7 @@ class AdminGrupController extends BaseController
 
         // Nama grup unik di dalam kelompok yang sama
         $existing = $this->grupModel
-            ->where('kelompok_id', (int) $kelompokId)
+            ->where('kelompok_id', $kelompokId)
             ->where('nama_grup', $namaGrup)
             ->first();
 
@@ -83,8 +119,9 @@ class AdminGrupController extends BaseController
                 ]);
         }
 
+        // Simpan grup
         $this->grupModel->insert([
-            'kelompok_id' => (int) $kelompokId,
+            'kelompok_id' => $kelompokId,
             'nama_grup'   => $namaGrup,
         ]);
 
@@ -101,9 +138,30 @@ class AdminGrupController extends BaseController
      * PUT /admin/grup/{id}
      *
      * Mengubah data grup.
+     *
+     * Request body:
+     * {
+     *     "nama_grup": "Grup Bapenda Baru",
+     *     "kelompok_id": 2
+     * }
+     *
+     * Semua field bersifat opsional.
      */
-    public function update($id)
+    public function update($id): ResponseInterface
     {
+        // Pastikan ID valid
+        if (!is_numeric($id) || (int) $id <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID grup tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
+        // Cari grup
         $grup = $this->grupModel->find($id);
 
         if (!$grup) {
@@ -115,26 +173,56 @@ class AdminGrupController extends BaseController
                 ]);
         }
 
+        // Ambil data dari raw JSON
         $input = $this->request->getJSON(true);
 
+        // Pastikan JSON valid
         if (!is_array($input)) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
                     'status'  => false,
-                    'message' => 'Request JSON tidak valid.',
+                    'message' => 'Format JSON tidak valid.',
                 ]);
         }
 
         $data = [];
 
-        $namaGrup = $input['nama_grup'] ?? null;
+        $namaGrup   = $input['nama_grup'] ?? null;
         $kelompokId = $input['kelompok_id'] ?? null;
 
-        // Jika kelompok tidak dikirim, gunakan kelompok saat ini
+        // Jika kelompok tidak dikirim,
+        // gunakan kelompok saat ini
         $targetKelompokId = $kelompokId !== null
-            ? (int) $kelompokId
+            ? $kelompokId
             : (int) $grup['kelompok_id'];
+
+        // Validasi kelompok ID jika dikirim
+        if ($kelompokId !== null) {
+            if (
+                !is_numeric($kelompokId) ||
+                (int) $kelompokId <= 0
+            ) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'kelompok_id tidak valid.',
+                    ]);
+            }
+
+            $targetKelompokId = (int) $kelompokId;
+
+            // Pastikan kelompok ada
+            if (!$this->kelompokModel->find($targetKelompokId)) {
+                return $this->response
+                    ->setStatusCode(404)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Kelompok tidak ditemukan.',
+                    ]);
+            }
+        }
 
         // Update nama grup
         if ($namaGrup !== null) {
@@ -149,6 +237,7 @@ class AdminGrupController extends BaseController
                     ]);
             }
 
+            // Cek nama grup agar tidak bentrok
             $existing = $this->grupModel
                 ->where('kelompok_id', $targetKelompokId)
                 ->where('nama_grup', $namaGrup)
@@ -169,28 +258,10 @@ class AdminGrupController extends BaseController
 
         // Update kelompok
         if ($kelompokId !== null) {
-            if ($kelompokId < 1) {
-                return $this->response
-                    ->setStatusCode(400)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'Kelompok tidak valid.',
-                    ]);
-            }
-
-            if (!$this->kelompokModel->find($kelompokId)) {
-                return $this->response
-                    ->setStatusCode(404)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'Kelompok tidak ditemukan.',
-                    ]);
-            }
-
             $data['kelompok_id'] = $targetKelompokId;
 
             // Jika kelompok berubah tetapi nama tidak dikirim,
-            // pastikan nama lama tidak bentrok di kelompok baru.
+            // cek apakah nama lama bentrok di kelompok baru.
             if ($namaGrup === null) {
                 $existing = $this->grupModel
                     ->where('kelompok_id', $targetKelompokId)
@@ -209,6 +280,7 @@ class AdminGrupController extends BaseController
             }
         }
 
+        // Tidak ada data yang diubah
         if (empty($data)) {
             return $this->response
                 ->setStatusCode(400)
@@ -218,12 +290,15 @@ class AdminGrupController extends BaseController
                 ]);
         }
 
+        // Update database
         $this->grupModel->update($id, $data);
 
-        return $this->response->setJSON([
-            'status'  => true,
-            'message' => 'Grup berhasil diperbarui.',
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status'  => true,
+                'message' => 'Grup berhasil diperbarui.',
+            ]);
     }
 
     /**
@@ -231,8 +306,21 @@ class AdminGrupController extends BaseController
      *
      * Menghapus grup.
      */
-    public function delete($id)
+    public function delete($id): ResponseInterface
     {
+        // Pastikan ID valid
+        if (!is_numeric($id) || (int) $id <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID grup tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
+        // Cari grup
         $grup = $this->grupModel->find($id);
 
         if (!$grup) {
@@ -244,7 +332,7 @@ class AdminGrupController extends BaseController
                 ]);
         }
 
-        // Grup tidak boleh dihapus jika masih memiliki instansi.
+        // Grup tidak boleh dihapus jika masih memiliki instansi
         $jumlahInstansi = $this->instansiModel
             ->where('grup_id', $id)
             ->countAllResults();
@@ -253,17 +341,20 @@ class AdminGrupController extends BaseController
             return $this->response
                 ->setStatusCode(409)
                 ->setJSON([
-                    'status'  => false,
-                    'message' => 'Grup tidak dapat dihapus karena masih memiliki instansi.',
+                    'status'          => false,
+                    'message'         => 'Grup tidak dapat dihapus karena masih memiliki instansi.',
                     'jumlah_instansi' => $jumlahInstansi,
                 ]);
         }
 
+        // Hapus grup
         $this->grupModel->delete($id);
 
-        return $this->response->setJSON([
-            'status'  => true,
-            'message' => 'Grup berhasil dihapus.',
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status'  => true,
+                'message' => 'Grup berhasil dihapus.',
+            ]);
     }
 }

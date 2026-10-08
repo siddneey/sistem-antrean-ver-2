@@ -51,17 +51,32 @@ class AdminLayananController extends BaseController
     /**
      * POST /admin/layanan
      *
-     * Menambahkan layanan baru.
+     * Body JSON:
+     * {
+     *     "nama_layanan": "Pelayanan KTP",
+     *     "instansi_id": 1
+     * }
      */
     public function create()
     {
+        $input = $this->request->getJSON(true);
+
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
         $namaLayanan = trim(
-            (string) $this->request->getPost('nama_layanan')
+            (string) ($input['nama_layanan'] ?? '')
         );
 
-        $instansiId = $this->request->getPost('instansi_id');
+        $instansiId = $input['instansi_id'] ?? null;
 
-        if ($namaLayanan === '' || !$instansiId) {
+        if ($namaLayanan === '' || $instansiId === null || $instansiId === '') {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
@@ -137,7 +152,11 @@ class AdminLayananController extends BaseController
     /**
      * PUT /admin/layanan/{id}
      *
-     * Mengubah data layanan.
+     * Body JSON:
+     * {
+     *     "nama_layanan": "Pelayanan KTP",
+     *     "instansi_id": 1
+     * }
      */
     public function update($id)
     {

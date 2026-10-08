@@ -48,16 +48,31 @@ class AdminHariLiburController extends BaseController
     /**
      * POST /admin/hari-libur
      *
-     * Menambahkan hari libur baru.
+     * Body JSON:
+     * {
+     *     "tanggal": "2026-10-05",
+     *     "keterangan": "Libur Nasional"
+     * }
      */
     public function create()
     {
+        $input = $this->request->getJSON(true);
+
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
         $tanggal = trim(
-            (string) $this->request->getPost('tanggal')
+            (string) ($input['tanggal'] ?? '')
         );
 
         $keterangan = trim(
-            (string) $this->request->getPost('keterangan')
+            (string) ($input['keterangan'] ?? '')
         );
 
         if ($tanggal === '') {
@@ -123,7 +138,11 @@ class AdminHariLiburController extends BaseController
     /**
      * PUT /admin/hari-libur/{id}
      *
-     * Mengubah hari libur.
+     * Body JSON:
+     * {
+     *     "tanggal": "2026-10-05",
+     *     "keterangan": "Libur Nasional"
+     * }
      */
     public function update($id)
     {
@@ -156,7 +175,7 @@ class AdminHariLiburController extends BaseController
                 ->setStatusCode(400)
                 ->setJSON([
                     'status'  => false,
-                    'message' => 'Data JSON tidak valid.',
+                    'message' => 'Format JSON tidak valid.',
                 ]);
         }
 
@@ -244,8 +263,6 @@ class AdminHariLiburController extends BaseController
 
     /**
      * DELETE /admin/hari-libur/{id}
-     *
-     * Menghapus hari libur.
      */
     public function delete($id)
     {

@@ -13,6 +13,9 @@ class AdminKelompokController extends BaseController
         $this->kelompokModel = new KelompokModel();
     }
 
+    /**
+     * GET /admin/kelompok
+     */
     public function index()
     {
         $kelompok = $this->kelompokModel
@@ -25,10 +28,29 @@ class AdminKelompokController extends BaseController
         ]);
     }
 
+    /**
+     * POST /admin/kelompok
+     *
+     * Body JSON:
+     * {
+     *     "nama_kelompok": "Kelompok Utama"
+     * }
+     */
     public function create()
     {
+        $input = $this->request->getJSON(true);
+
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
         $namaKelompok = trim(
-            (string) $this->request->getPost('nama_kelompok')
+            (string) ($input['nama_kelompok'] ?? '')
         );
 
         if ($namaKelompok === '') {
@@ -66,8 +88,27 @@ class AdminKelompokController extends BaseController
             ]);
     }
 
+    /**
+     * PUT /admin/kelompok/{id}
+     *
+     * Body JSON:
+     * {
+     *     "nama_kelompok": "Kelompok Utama"
+     * }
+     */
     public function update($id)
     {
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID kelompok tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
         $kelompok = $this->kelompokModel->find($id);
 
         if (!$kelompok) {
@@ -80,6 +121,15 @@ class AdminKelompokController extends BaseController
         }
 
         $input = $this->request->getJSON(true);
+
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
 
         $namaKelompok = $input['nama_kelompok'] ?? null;
 
@@ -127,8 +177,22 @@ class AdminKelompokController extends BaseController
         ]);
     }
 
+    /**
+     * DELETE /admin/kelompok/{id}
+     */
     public function delete($id)
     {
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID kelompok tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
         $kelompok = $this->kelompokModel->find($id);
 
         if (!$kelompok) {

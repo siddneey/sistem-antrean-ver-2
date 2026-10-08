@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\InstansiModel;
 use App\Models\UserModel;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class AdminPetugasController extends BaseController
 {
@@ -21,35 +22,58 @@ class AdminPetugasController extends BaseController
      *
      * Menampilkan seluruh petugas.
      */
-    public function index()
+    public function index(): ResponseInterface
     {
         $petugas = $this->userModel
             ->where('role_id', 2)
             ->select('id, role_id, instansi_id, username, created_at, updated_at')
             ->findAll();
 
-        return $this->response->setJSON([
-            'status' => true,
-            'data'   => $petugas,
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status' => true,
+                'data'   => $petugas,
+            ]);
     }
 
     /**
      * POST /admin/petugas
      *
      * Membuat akun petugas baru.
+     *
+     * Request body:
+     * {
+     *     "username": "petugas1",
+     *     "password": "123456",
+     *     "instansi_id": 1
+     * }
      */
-    public function create()
+    public function create(): ResponseInterface
     {
-        $username   = trim((string) $this->request->getPost('username'));
-        $password   = (string) $this->request->getPost('password');
-        $instansiId = $this->request->getPost('instansi_id');
+        // Ambil data dari raw JSON
+        $input = $this->request->getJSON(true);
+
+        // Pastikan JSON valid
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
+        $username   = trim((string) ($input['username'] ?? ''));
+        $password   = (string) ($input['password'] ?? '');
+        $instansiId = $input['instansi_id'] ?? null;
 
         // Validasi input wajib
         if (
             $username === '' ||
             $password === '' ||
-            !$instansiId
+            $instansiId === null ||
+            $instansiId === ''
         ) {
             return $this->response
                 ->setStatusCode(400)
@@ -58,6 +82,18 @@ class AdminPetugasController extends BaseController
                     'message' => 'username, password, dan instansi wajib diisi.',
                 ]);
         }
+
+        // Pastikan instansi ID berupa angka
+        if (!is_numeric($instansiId) || (int) $instansiId <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'instansi_id tidak valid.',
+                ]);
+        }
+
+        $instansiId = (int) $instansiId;
 
         // Validasi instansi harus ada
         if (!$this->instansiModel->find($instansiId)) {
@@ -82,7 +118,7 @@ class AdminPetugasController extends BaseController
         // Buat akun petugas
         $this->userModel->insert([
             'role_id'     => 2,
-            'instansi_id' => (int) $instansiId,
+            'instansi_id' => $instansiId,
             'username'    => $username,
             'password'    => password_hash($password, PASSWORD_DEFAULT),
         ]);
@@ -100,9 +136,30 @@ class AdminPetugasController extends BaseController
      * PUT /admin/petugas/{id}
      *
      * Mengubah data petugas.
+     *
+     * Request body:
+     * {
+     *     "username": "petugasbaru",
+     *     "password": "12345678",
+     *     "instansi_id": 2
+     * }
+     *
+     * Semua field bersifat opsional.
      */
-    public function update($id)
+    public function update($id): ResponseInterface
     {
+        // Pastikan ID berupa angka
+        if (!is_numeric($id) || (int) $id <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID petugas tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
         // Pastikan user adalah petugas
         $petugas = $this->userModel
             ->where('id', $id)
@@ -118,32 +175,28 @@ class AdminPetugasController extends BaseController
                 ]);
         }
 
-        $data = [];
-
-        // Data PUT dikirim dalam format JSON
+        // Ambil data dari raw JSON
         $input = $this->request->getJSON(true);
+
+        // Pastikan JSON valid
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
+        $data = [];
 
         $username   = $input['username'] ?? null;
         $instansiId = $input['instansi_id'] ?? null;
         $password   = $input['password'] ?? null;
 
+        // =========================
         // Update username
-        if ($username !== null) {
-            $username = trim((string) $username);
-
-            if ($username === '') {
-                return $this->response
-                    ->setStatusCode(400)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'username tidak boleh kosong.',
-                    ]);
-            }
-
-            $data['username'] = $username;
-        }
-
-        // Update username
+        // =========================
         if ($username !== null) {
             $username = trim((string) $username);
 
@@ -174,8 +227,22 @@ class AdminPetugasController extends BaseController
             $data['username'] = $username;
         }
 
+        // =========================
         // Update instansi
+        // =========================
         if ($instansiId !== null) {
+
+            // Pastikan instansi ID valid
+            if (!is_numeric($instansiId) || (int) $instansiId <= 0) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'instansi_id tidak valid.',
+                    ]);
+            }
+
+            $instansiId = (int) $instansiId;
 
             // Pastikan instansi benar-benar ada
             if (!$this->instansiModel->find($instansiId)) {
@@ -187,13 +254,26 @@ class AdminPetugasController extends BaseController
                     ]);
             }
 
-            $data['instansi_id'] = (int) $instansiId;
+            $data['instansi_id'] = $instansiId;
         }
 
-        // Update password jika dikirim
-        if ($password !== null && $password !== '') {
+        // =========================
+        // Update password
+        // =========================
+        if ($password !== null) {
+            $password = (string) $password;
+
+            if ($password === '') {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'password tidak boleh kosong.',
+                    ]);
+            }
+
             $data['password'] = password_hash(
-                (string) $password,
+                $password,
                 PASSWORD_DEFAULT
             );
         }
@@ -208,12 +288,15 @@ class AdminPetugasController extends BaseController
                 ]);
         }
 
+        // Update database
         $this->userModel->update($id, $data);
 
-        return $this->response->setJSON([
-            'status'  => true,
-            'message' => 'Petugas berhasil diperbarui.',
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status'  => true,
+                'message' => 'Petugas berhasil diperbarui.',
+            ]);
     }
 
     /**
@@ -221,8 +304,20 @@ class AdminPetugasController extends BaseController
      *
      * Menghapus akun petugas.
      */
-    public function delete($id)
+    public function delete($id): ResponseInterface
     {
+        // Pastikan ID berupa angka
+        if (!is_numeric($id) || (int) $id <= 0) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'ID petugas tidak valid.',
+                ]);
+        }
+
+        $id = (int) $id;
+
         // Pastikan user adalah petugas
         $petugas = $this->userModel
             ->where('id', $id)
@@ -238,11 +333,14 @@ class AdminPetugasController extends BaseController
                 ]);
         }
 
+        // Hapus petugas
         $this->userModel->delete($id);
 
-        return $this->response->setJSON([
-            'status'  => true,
-            'message' => 'Petugas berhasil dihapus.',
-        ]);
+        return $this->response
+            ->setStatusCode(200)
+            ->setJSON([
+                'status'  => true,
+                'message' => 'Petugas berhasil dihapus.',
+            ]);
     }
 }

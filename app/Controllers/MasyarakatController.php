@@ -37,6 +37,11 @@ class MasyarakatController extends BaseController
                 'data'   => $instansi,
             ]);
         } catch (Throwable $e) {
+            log_message(
+                'error',
+                'MasyarakatController::instansi | ' . $e->getMessage()
+            );
+
             return $this->response
                 ->setStatusCode(500)
                 ->setJSON([
@@ -53,6 +58,15 @@ class MasyarakatController extends BaseController
      */
     public function kuota($instansiId)
     {
+        if (!filter_var($instansiId, FILTER_VALIDATE_INT)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Instansi tidak valid.',
+                ]);
+        }
+
         $instansiId = (int) $instansiId;
 
         if ($instansiId < 1) {
@@ -70,6 +84,15 @@ class MasyarakatController extends BaseController
 
         if ($tanggal === '') {
             $tanggal = date('Y-m-d');
+        }
+
+        if (!$this->isValidDate($tanggal)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format tanggal harus YYYY-MM-DD.',
+                ]);
         }
 
         try {
@@ -124,8 +147,7 @@ class MasyarakatController extends BaseController
                         'terpakai' => $terpakaiBiasa,
                         'tersisa'  => max(
                             0,
-                            $kuota['kuota_biasa']
-                                - $terpakaiBiasa
+                            $kuota['kuota_biasa'] - $terpakaiBiasa
                         ),
                     ],
 
@@ -134,18 +156,22 @@ class MasyarakatController extends BaseController
                         'terpakai' => $terpakaiPrioritas,
                         'tersisa'  => max(
                             0,
-                            $kuota['kuota_prioritas']
-                                - $terpakaiPrioritas
+                            $kuota['kuota_prioritas'] - $terpakaiPrioritas
                         ),
                     ],
                 ],
             ]);
         } catch (Throwable $e) {
+            log_message(
+                'error',
+                'MasyarakatController::kuota | ' . $e->getMessage()
+            );
+
             return $this->response
-                ->setStatusCode(400)
+                ->setStatusCode(500)
                 ->setJSON([
                     'status'  => false,
-                    'message' => $e->getMessage(),
+                    'message' => 'Gagal mengambil data kuota.',
                 ]);
         }
     }
@@ -198,6 +224,15 @@ class MasyarakatController extends BaseController
                 ]);
         }
 
+        if (!$this->isValidDate($tanggal)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format tanggal harus YYYY-MM-DD.',
+                ]);
+        }
+
         if ($instansiId === false || $instansiId < 1) {
             return $this->response
                 ->setStatusCode(400)
@@ -231,6 +266,11 @@ class MasyarakatController extends BaseController
                 ->setStatusCode(201)
                 ->setJSON($hasil);
         } catch (Throwable $e) {
+            log_message(
+                'error',
+                'MasyarakatController::ambilAntrean | ' . $e->getMessage()
+            );
+
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
@@ -238,5 +278,16 @@ class MasyarakatController extends BaseController
                     'message' => $e->getMessage(),
                 ]);
         }
+    }
+
+    /**
+     * Validasi tanggal dengan format YYYY-MM-DD.
+     */
+    protected function isValidDate(string $tanggal): bool
+    {
+        $tanggalObj = \DateTime::createFromFormat('Y-m-d', $tanggal);
+
+        return $tanggalObj !== false
+            && $tanggalObj->format('Y-m-d') === $tanggal;
     }
 }

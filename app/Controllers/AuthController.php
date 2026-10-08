@@ -15,12 +15,28 @@ class AuthController extends BaseController
     }
 
     /**
+     * POST /login
+     *
      * Login Admin / Petugas
+     * Request body: JSON
      */
     public function login(): ResponseInterface
     {
-        $username = trim((string) $this->request->getPost('username'));
-        $password = (string) $this->request->getPost('password');
+        // Ambil data dari raw JSON
+        $input = $this->request->getJSON(true);
+
+        // Pastikan JSON valid dan berbentuk array
+        if (!is_array($input)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Format JSON tidak valid.',
+                ]);
+        }
+
+        $username = trim((string) ($input['username'] ?? ''));
+        $password = (string) ($input['password'] ?? '');
 
         // Validasi input
         if ($username === '' || $password === '') {
@@ -70,6 +86,7 @@ class AuthController extends BaseController
             'username'     => $user['username'],
         ]);
 
+        // Response berhasil
         return $this->response
             ->setStatusCode(200)
             ->setJSON([
@@ -85,6 +102,8 @@ class AuthController extends BaseController
     }
 
     /**
+     * POST /logout
+     *
      * Logout Admin / Petugas
      */
     public function logout(): ResponseInterface
