@@ -4,18 +4,16 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class UserModel extends Model
+class HariLiburModel extends Model
 {
     protected $DBGroup = 'pusat';
 
-    protected $table = 'users';
+    protected $table = 'hari_libur';
     protected $primaryKey = 'id';
 
     protected $allowedFields = [
-        'role_id',
-        'instansi_id',
-        'username',
-        'password',
+        'tanggal',
+        'keterangan',
     ];
 
     protected $useTimestamps = true;

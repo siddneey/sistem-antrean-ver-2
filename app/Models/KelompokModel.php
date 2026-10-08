@@ -4,18 +4,15 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class UserModel extends Model
+class KelompokModel extends Model
 {
     protected $DBGroup = 'pusat';
 
-    protected $table = 'users';
+    protected $table = 'kelompok';
     protected $primaryKey = 'id';
 
     protected $allowedFields = [
-        'role_id',
-        'instansi_id',
-        'username',
-        'password',
+        'nama_kelompok',
     ];
 
     protected $useTimestamps = true;
