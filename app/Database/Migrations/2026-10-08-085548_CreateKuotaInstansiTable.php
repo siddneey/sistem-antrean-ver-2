@@ -4,7 +4,7 @@ namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
 
-class CreateUsersTable extends Migration
+class CreateKuotaInstansiTable extends Migration
 {
     public function up()
     {
@@ -15,35 +15,30 @@ class CreateUsersTable extends Migration
                 'unsigned'       => true,
                 'auto_increment' => true,
             ],
-
-            'role_id' => [
-                'type'       => 'INT',
-                'constraint' => 10,
-                'unsigned'   => true,
-            ],
-
             'instansi_id' => [
                 'type'       => 'INT',
                 'constraint' => 10,
                 'unsigned'   => true,
-                'null'       => true,
             ],
-
-            'username' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 100,
+            'tanggal' => [
+                'type' => 'DATE',
             ],
-
-            'password' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 255,
+            'kuota_biasa' => [
+                'type'       => 'INT',
+                'constraint' => 10,
+                'unsigned'   => true,
+                'default'    => 50,
             ],
-
+            'kuota_prioritas' => [
+                'type'       => 'INT',
+                'constraint' => 10,
+                'unsigned'   => true,
+                'default'    => 5,
+            ],
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
-
             'updated_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -52,29 +47,24 @@ class CreateUsersTable extends Migration
 
         $this->forge->addKey('id', true);
 
-        $this->forge->addUniqueKey('username');
-
-        $this->forge->addForeignKey(
-            'role_id',
-            'roles',
-            'id',
-            'CASCADE',
-            'RESTRICT'
+        $this->forge->addUniqueKey(
+            ['instansi_id', 'tanggal'],
+            'uq_kuota_instansi_tanggal'
         );
 
         $this->forge->addForeignKey(
             'instansi_id',
             'instansi',
             'id',
-            'SET NULL',
+            'RESTRICT',
             'RESTRICT'
         );
 
-        $this->forge->createTable('users');
+        $this->forge->createTable('kuota_instansi');
     }
 
     public function down()
     {
-        $this->forge->dropTable('users', true);
+        $this->forge->dropTable('kuota_instansi', true);
     }
 }

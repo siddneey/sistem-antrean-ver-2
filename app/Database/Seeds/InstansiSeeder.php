@@ -8,16 +8,18 @@ class InstansiSeeder extends Seeder
 {
     public function run()
     {
-        // 1. Matikan pemeriksaan foreign key sementara khusus untuk MySQL/MariaDB
+        /* 
+        1. Matikan pemeriksaan foreign key sementara khusus untuk MySQL/MariaDB
         $this->db->query('SET FOREIGN_KEY_CHECKS = 0;');
 
-        // 2. Kosongkan tabel instansi (dan reset ID ke 1)
-        // Jika tabel layanan atau users ikut terikat dan mau dibersihkan juga, bisa di-truncate di sini.
-        // Tapi kalau hanya ingin mengosongkan instansi, cukup tabel ini saja:
+        2. Kosongkan tabel instansi (dan reset ID ke 1)
+        Jika tabel layanan atau users ikut terikat dan mau dibersihkan juga, bisa di-truncate di sini.
+        Tapi kalau hanya ingin mengosongkan instansi, cukup tabel ini saja:
         $this->db->table('instansi')->truncate();
 
-        // 3. Nyalakan kembali pemeriksaan foreign key
+        3. Nyalakan kembali pemeriksaan foreign key
         $this->db->query('SET FOREIGN_KEY_CHECKS = 1;');
+        */
 
         $data = [
             // Grup 1
