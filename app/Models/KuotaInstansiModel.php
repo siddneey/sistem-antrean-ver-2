@@ -6,7 +6,6 @@ use CodeIgniter\Model;
 
 class KuotaInstansiModel extends Model
 {
-    protected $DBGroup = 'pusat';
     protected $table = 'kuota_instansi';
     protected $primaryKey = 'id';
 

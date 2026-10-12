@@ -33,7 +33,7 @@ class CreateKuotaInstansiTable extends Migration
                 'type'       => 'INT',
                 'constraint' => 10,
                 'unsigned'   => true,
-                'default'    => 5,
+                'default'    => 30,
             ],
             'created_at' => [
                 'type' => 'DATETIME',

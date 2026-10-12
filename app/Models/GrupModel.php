@@ -6,8 +6,6 @@ use CodeIgniter\Model;
 
 class GrupModel extends Model
 {
-    protected $DBGroup = 'pusat';
-
     protected $table = 'grup';
     protected $primaryKey = 'id';
 

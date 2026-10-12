@@ -4,19 +4,14 @@ namespace App\Services;
 
 use CodeIgniter\Database\BaseConnection;
 use RuntimeException;
-use Throwable;
 
 class DisplayService
 {
-    protected BaseConnection $dbAntrean;
-    protected BaseConnection $dbLayanan;
-    protected BaseConnection $dbPusat;
+    protected BaseConnection $db;
 
     public function __construct()
     {
-        $this->dbAntrean = db_connect('default');
-        $this->dbLayanan = db_connect('layanan');
-        $this->dbPusat   = db_connect('pusat');
+        $this->db = db_connect();
     }
 
     /**
@@ -52,7 +47,7 @@ class DisplayService
         |--------------------------------------------------------------------------
         */
 
-        $instansiRows = $this->dbPusat
+        $instansiRows = $this->db
             ->table('instansi')
             ->select([
                 'instansi.id',
@@ -109,7 +104,7 @@ class DisplayService
         |
         */
 
-        $panggilanRows = $this->dbLayanan
+        $panggilanRows = $this->db
             ->table('riwayat_panggilan rp')
             ->select([
                 'rp.id AS riwayat_panggilan_id',
@@ -156,7 +151,7 @@ class DisplayService
 
         foreach ($panggilanRows as $panggilan) {
 
-            $antrean = $this->dbAntrean
+            $antrean = $this->db
                 ->table('antrean')
                 ->select([
                     'id',
@@ -293,7 +288,7 @@ class DisplayService
         |--------------------------------------------------------------------------
         */
 
-        $kelompok = $this->dbPusat
+        $kelompok = $this->db
             ->table('kelompok')
             ->select([
                 'id',
@@ -318,7 +313,7 @@ class DisplayService
         |--------------------------------------------------------------------------
         */
 
-        $grup = $this->dbPusat
+        $grup = $this->db
             ->table('grup')
             ->select([
                 'id',

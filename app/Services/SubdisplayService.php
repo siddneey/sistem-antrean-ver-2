@@ -7,15 +7,11 @@ use RuntimeException;
 
 class SubdisplayService
 {
-    protected $dbAntrean;
-    protected $dbLayanan;
-    protected $dbPusat;
+    protected $db;
 
     public function __construct()
     {
-        $this->dbAntrean = Database::connect('default');
-        $this->dbLayanan = Database::connect('layanan');
-        $this->dbPusat   = Database::connect('pusat');
+        $this->db = Database::connect();
     }
 
     /**
@@ -36,7 +32,7 @@ class SubdisplayService
          * ---------------------------------------------------------------------
          */
 
-        $grup = $this->dbPusat
+        $grup = $this->db
             ->table('grup g')
             ->select(
                 'g.id,
@@ -57,7 +53,7 @@ class SubdisplayService
          * ---------------------------------------------------------------------
          */
 
-        $instansi = $this->dbPusat
+        $instansi = $this->db
             ->table('instansi i')
             ->select(
                 'i.id,
@@ -102,7 +98,7 @@ class SubdisplayService
          * sebagai latest_call ketika hari sudah berganti.
          */
 
-        $panggilan = $this->dbLayanan
+        $panggilan = $this->db
             ->table('riwayat_panggilan rp')
             ->select(
                 'rp.id AS riwayat_panggilan_id,
@@ -151,7 +147,7 @@ class SubdisplayService
         $antreanMap = [];
 
         if (!empty($antreanIds)) {
-            $antreanRows = $this->dbAntrean
+            $antreanRows = $this->db
                 ->table('antrean')
                 ->select(
                     'id,

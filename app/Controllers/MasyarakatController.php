@@ -23,9 +23,9 @@ class MasyarakatController extends BaseController
     public function instansi()
     {
         try {
-            $dbPusat = db_connect('pusat');
+            $db = db_connect();
 
-            $instansi = $dbPusat
+            $instansi = $db
                 ->table('instansi')
                 ->select('id, grup_id, nama_instansi, logo')
                 ->orderBy('nama_instansi', 'ASC')
@@ -96,9 +96,9 @@ class MasyarakatController extends BaseController
         }
 
         try {
-            $dbPusat = db_connect('pusat');
+            $db = db_connect();
 
-            $instansi = $dbPusat
+            $instansi = $db
                 ->table('instansi')
                 ->select('id, nama_instansi, logo')
                 ->where('id', $instansiId)

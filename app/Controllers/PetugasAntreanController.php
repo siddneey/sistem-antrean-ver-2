@@ -2,16 +2,16 @@
 
 namespace App\Controllers;
 
-use App\Services\AntreanService;
+use App\Services\PelayananService;
 use Throwable;
 
 class PetugasAntreanController extends BaseController
 {
-    protected AntreanService $antreanService;
+    protected PelayananService $pelayananService;
 
     public function __construct()
     {
-        $this->antreanService = new AntreanService();
+        $this->pelayananService = new PelayananService();
     }
 
     /**
@@ -22,7 +22,7 @@ class PetugasAntreanController extends BaseController
         $instansiId = (int) session()->get('instansi_id');
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->getAntreanSedangDilayani($instansiId);
 
             return $this->response->setJSON([
@@ -42,7 +42,7 @@ class PetugasAntreanController extends BaseController
         $instansiId = (int) session()->get('instansi_id');
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->getAntreanMenunggu($instansiId);
 
             return $this->response->setJSON([
@@ -63,7 +63,7 @@ class PetugasAntreanController extends BaseController
         $instansiId = (int) session()->get('instansi_id');
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->panggilAntrean(
                     $petugasId,
                     $instansiId
@@ -98,7 +98,7 @@ class PetugasAntreanController extends BaseController
         }
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->panggilUlang(
                     $riwayatLayananId,
                     $petugasId
@@ -163,7 +163,7 @@ class PetugasAntreanController extends BaseController
         }
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
               
             ->konfirmasiStatus(
                     $riwayatLayananId,
@@ -204,7 +204,7 @@ class PetugasAntreanController extends BaseController
         }
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->panggilPending(
                     $riwayatLayananId,
                     $petugasId
@@ -228,7 +228,7 @@ class PetugasAntreanController extends BaseController
         $instansiId = (int) session()->get('instansi_id');
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->getAntreanSudahDipanggil($instansiId);
 
             return $this->response->setJSON([
@@ -273,7 +273,7 @@ class PetugasAntreanController extends BaseController
         }
 
         try {
-            $data = $this->antreanService
+            $data = $this->pelayananService
                 ->terusanAntrean(
                     $riwayatLayananId,
                     $petugasId,
