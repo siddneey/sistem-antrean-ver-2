@@ -4,14 +4,7 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 
-
-
-
 $routes->get('/', 'Home::index');
-
-
-
-
 
 // =========================================================
 // AUTH
@@ -45,7 +38,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
-
     // =========================
     // PETUGAS
     // =========================
@@ -73,7 +65,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         'AdminPetugasController::delete/$1',
         ['filter' => 'role:1']
     );
-
 
     // =========================
     // INSTANSI
@@ -103,7 +94,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
-
     // =========================
     // GRUP
     // =========================
@@ -131,7 +121,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         'AdminGrupController::delete/$1',
         ['filter' => 'role:1']
     );
-
 
     // =========================
     // KELOMPOK
@@ -161,7 +150,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
-
     // =========================
     // LAYANAN
     // =========================
@@ -189,7 +177,6 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         'AdminLayananController::delete/$1',
         ['filter' => 'role:1']
     );
-
 
     // =========================
     // HARI LIBUR
@@ -236,7 +223,6 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
         'PetugasController::dashboard',
         ['filter' => 'role:2']
     );
-
 
     // =========================
     // ANTREAN
