@@ -16,25 +16,56 @@ class AdminPetugasController extends BaseController
         $this->userModel = new UserModel();
         $this->instansiModel = new InstansiModel();
     }
+    /**
+     * GET /admin/petugas
+     *
+     * Menampilkan halaman pengelolaan petugas.
+     */
+    public function halaman()
+    {
+        $instansiList = $this->instansiModel
+            ->select('id, nama_instansi')
+            ->orderBy('nama_instansi', 'ASC')
+            ->findAll();
+
+        return view('admin/petugas', [
+            'instansiList' => $instansiList,
+        ]);
+    }
 
     /**
      * GET /admin/petugas
      *
      * Menampilkan seluruh petugas.
      */
+
     public function index(): ResponseInterface
     {
         $petugas = $this->userModel
-            ->where('role_id', 2)
-            ->select('id, role_id, instansi_id, username, created_at, updated_at')
+            ->select([
+                'users.id',
+                'users.role_id',
+                'users.instansi_id',
+                'users.username',
+                'users.status',
+                'users.last_login',
+                'users.created_at',
+                'users.updated_at',
+                'instansi.nama_instansi',
+            ])
+            ->join(
+                'instansi',
+                'instansi.id = users.instansi_id',
+                'left'
+            )
+            ->where('users.role_id', 2)
+            ->orderBy('users.username', 'ASC')
             ->findAll();
 
-        return $this->response
-            ->setStatusCode(200)
-            ->setJSON([
-                'status' => true,
-                'data'   => $petugas,
-            ]);
+        return $this->response->setJSON([
+            'status' => true,
+            'data'   => $petugas,
+        ]);
     }
 
     /**

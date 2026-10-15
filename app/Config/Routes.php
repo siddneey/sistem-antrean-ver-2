@@ -29,7 +29,7 @@ $routes->post(
 $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
 
     // =========================
-    // DASHBOARD
+    // MENU UTAMA
     // =========================
 
     $routes->get(
@@ -38,10 +38,28 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
+    $routes->get(
+        'laporan-proses-antrean',
+        'AdminController::laporanProsesAntrean',
+        ['filter' => 'role:1']
+    );
+
+    $routes->get(
+        'laporan-ringkasan-antrean',
+        'AdminController::laporanRingkasanAntrean',
+        ['filter' => 'role:1']
+    );
+
     // =========================
     // PETUGAS
     // =========================
 
+    $routes->get(
+        'petugas',
+        'AdminPetugasController::halaman',
+        ['filter' => 'role:1']
+    );
+    
     $routes->get(
         'petugas',
         'AdminPetugasController::index',
@@ -69,6 +87,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     // =========================
     // INSTANSI
     // =========================
+
+    $routes->get(
+        'instansi/halaman',
+        'AdminInstansiController::halaman',
+        ['filter' => 'role:1']
+    );
 
     $routes->get(
         'instansi',
