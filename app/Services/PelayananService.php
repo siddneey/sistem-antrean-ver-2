@@ -385,7 +385,6 @@ class PelayananService
     | KONFIRMASI STATUS
     |--------------------------------------------------------------------------
     */
-
     public function konfirmasiStatus(
         int $petugasId,
         int $riwayatLayananId,
@@ -393,15 +392,11 @@ class PelayananService
         ?int $layananId = null,
         ?string $keterangan = null
     ): array {
-        
+
         // Normalisasi dan validasi status
         $status = strtoupper(trim($status));
 
-        if (!in_array(
-            $status,
-            ['SELESAI', 'PENDING'],
-            true
-        )) {
+        if (!in_array($status, ['SELESAI', 'PENDING'], true)) {
             throw new RuntimeException(
                 'Status hanya dapat berupa SELESAI atau PENDING.'
             );
@@ -421,14 +416,13 @@ class PelayananService
                 );
             }
 
-            // Validasi petugas yang menangani antrean
-            if ((int) $riwayat['petugas_id'] !== $petugasId) {
-                throw new RuntimeException(
-                    'Antrean ini bukan tanggung jawab petugas tersebut.'
-                );
-            }
+            // Validasi petugas terhadap instansi antrean
+            $this->validasiPetugasInstansi(
+                $petugasId,
+                (int) $riwayat['instansi_id']
+            );
 
-            // Pastikan antrean masih aktif
+            // Pastikan antrean sedang dipanggil atau dilayani
             if (!in_array(
                 $riwayat['status_layanan'],
                 ['DIPANGGIL', 'DILAYANI'],
@@ -441,16 +435,16 @@ class PelayananService
 
             $waktu = date('Y-m-d H:i:s');
 
-            // Siapkan data perubahan status SELESAI
+            // Jika status SELESAI
             if ($status === 'SELESAI') {
-                
-                // Layanan wajib dipilih
-                if ($layananId === null) {
+
+                if ($layananId === null || $layananId <= 0) {
                     throw new RuntimeException(
                         'Detail layanan wajib dipilih ketika status SELESAI.'
                     );
                 }
-                // Validasi layanan terhadap instansi
+
+                // Pastikan layanan sesuai instansi
                 $this->validasiLayanan(
                     $layananId,
                     (int) $riwayat['instansi_id']
@@ -458,20 +452,21 @@ class PelayananService
 
                 $dataUpdate = [
                     'status_layanan' => 'SELESAI',
-                    'layanan_id' => $layananId,
-                    'waktu_selesai' => $waktu,
-                    'keterangan' => $keterangan,
-                    'updated_at' => $waktu,
+                    'layanan_id'     => $layananId,
+                    'waktu_selesai'  => $waktu,
+                    'keterangan'     => $keterangan,
+                    'updated_at'     => $waktu,
                 ];
+
             } else {
-                
-                // Siapkan data perubahan status PENDING
+
+                // Jika status PENDING
                 $dataUpdate = [
                     'status_layanan' => 'PENDING',
-                    'layanan_id' => null,
-                    'waktu_selesai' => null,
-                    'keterangan' => $keterangan,
-                    'updated_at' => $waktu,
+                    'layanan_id'     => null,
+                    'waktu_selesai'  => null,
+                    'keterangan'     => $keterangan,
+                    'updated_at'     => $waktu,
                 ];
             }
 
@@ -495,128 +490,6 @@ class PelayananService
 
         } catch (\Throwable $e) {
 
-            $this->db->transRollback();
-
-            throw $e;
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | PANGGIL ANTREAN PENDING
-    |--------------------------------------------------------------------------
-    */
-
-    public function panggilPending(
-        int $petugasId,
-        int $riwayatLayananId
-    ): array {
-        $this->db->transBegin();
-
-        try {
-            $riwayat = $this->getRiwayatDenganLock(
-                $riwayatLayananId
-            );
-
-            if (!$riwayat) {
-                throw new RuntimeException(
-                    'Riwayat layanan tidak ditemukan.'
-                );
-            }
-
-            // Pastikan petugas adalah petugas pada instansi tersebut
-            $this->validasiPetugasInstansi(
-                $petugasId,
-                (int) $riwayat['instansi_id']
-            );
-
-            // Pastikan PENDING
-            if ($riwayat['status_layanan'] !== 'PENDING') {
-                throw new RuntimeException(
-                    'Antrean tersebut bukan antrean PENDING.'
-                );
-            }
-
-            $waktu = date('Y-m-d H:i:s');
-
-            // Pending kembali dilayani
-            $this->db
-                ->table('riwayat_layanan')
-                ->where(
-                    'id',
-                    $riwayatLayananId
-                )
-                ->update([
-                    'status_layanan' => 'DILAYANI',
-                    'petugas_id' => $petugasId,
-                    'waktu_mulai' => $waktu,
-                    'waktu_selesai' => null,
-                    'updated_at' => $waktu,
-                ]);
-
-            // Catat panggilan
-            $this->db
-                ->table('riwayat_panggilan')
-                ->insert([
-                    'riwayat_layanan_id' =>
-                        $riwayatLayananId,
-
-                    'petugas_id' =>
-                        $petugasId,
-
-                    'aksi' =>
-                        'PANGGIL',
-
-                    'waktu' =>
-                        $waktu,
-
-                    'keterangan' =>
-                        'Panggil antrean pending',
-
-                    'created_at' =>
-                        $waktu,
-
-                    'updated_at' =>
-                        $waktu,
-                ]);
-
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal memanggil antrean pending.'
-                );
-            }
-
-            $this->db->transCommit();
-
-            return [
-                'riwayat_layanan_id' =>
-                    $riwayatLayananId,
-
-                'antrean_id' =>
-                    (int) $riwayat['antrean_id'],
-
-                'nomor_antrean' =>
-                    $this->getNomorAntrean(
-                        (int) $riwayat['antrean_id']
-                    ),
-
-                'instansi_id' =>
-                    (int) $riwayat['instansi_id'],
-
-                'petugas_id' =>
-                    $petugasId,
-
-                'status_layanan' =>
-                    'DILAYANI',
-
-                'aksi' =>
-                    'PANGGIL',
-
-                'waktu' =>
-                    $waktu,
-            ];
-
-        } catch (\Throwable $e) {
             $this->db->transRollback();
 
             throw $e;

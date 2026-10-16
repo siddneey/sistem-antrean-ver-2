@@ -51,6 +51,7 @@ class AdminInstansiController extends BaseController
 
         return view('admin/instansi', [
             'instansi' => $instansi,
+            'activeMenu' => 'instansi',
         ]);
     }
 

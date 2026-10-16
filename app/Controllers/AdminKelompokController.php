@@ -14,12 +14,25 @@ class AdminKelompokController extends BaseController
     }
 
     /**
+     * GET /admin/pengaturan-kelompok
+     * Menampilkan halaman frontend pengaturan kelompok.
+     */
+    public function halaman()
+    {
+        return view('admin/pengaturan_kelompok', [
+            'activeMenu' => 'pengaturan-kelompok',
+        ]);
+    }
+
+    /**
      * GET /admin/kelompok
+     * Mengambil seluruh data kelompok dalam format JSON.
      */
     public function index()
     {
         $kelompok = $this->kelompokModel
             ->select('id, nama_kelompok, created_at, updated_at')
+            ->orderBy('id', 'ASC')
             ->findAll();
 
         return $this->response->setJSON([
@@ -30,11 +43,7 @@ class AdminKelompokController extends BaseController
 
     /**
      * POST /admin/kelompok
-     *
-     * Body JSON:
-     * {
-     *     "nama_kelompok": "Kelompok Utama"
-     * }
+     * Body JSON: {"nama_kelompok": "Kelompok Utama"}
      */
     public function create()
     {
@@ -75,30 +84,36 @@ class AdminKelompokController extends BaseController
                 ]);
         }
 
-        $this->kelompokModel->insert([
+        $id = $this->kelompokModel->insert([
             'nama_kelompok' => $namaKelompok,
-        ]);
+        ], true);
+
+        if ($id === false) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Kelompok gagal ditambahkan.',
+                    'errors'  => $this->kelompokModel->errors(),
+                ]);
+        }
 
         return $this->response
             ->setStatusCode(201)
             ->setJSON([
                 'status'  => true,
                 'message' => 'Kelompok berhasil ditambahkan.',
-                'id'      => $this->kelompokModel->getInsertID(),
+                'id'      => $id,
             ]);
     }
 
     /**
      * PUT /admin/kelompok/{id}
-     *
-     * Body JSON:
-     * {
-     *     "nama_kelompok": "Kelompok Utama"
-     * }
+     * Body JSON: {"nama_kelompok": "Kelompok Utama"}
      */
     public function update($id)
     {
-        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+        if (!ctype_digit((string) $id) || (int) $id < 1) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
@@ -108,7 +123,6 @@ class AdminKelompokController extends BaseController
         }
 
         $id = (int) $id;
-
         $kelompok = $this->kelompokModel->find($id);
 
         if (!$kelompok) {
@@ -131,25 +145,16 @@ class AdminKelompokController extends BaseController
                 ]);
         }
 
-        $namaKelompok = $input['nama_kelompok'] ?? null;
-
-        if ($namaKelompok === null) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Nama kelompok wajib diisi.',
-                ]);
-        }
-
-        $namaKelompok = trim((string) $namaKelompok);
+        $namaKelompok = trim(
+            (string) ($input['nama_kelompok'] ?? '')
+        );
 
         if ($namaKelompok === '') {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
                     'status'  => false,
-                    'message' => 'Nama kelompok tidak boleh kosong.',
+                    'message' => 'Nama kelompok wajib diisi.',
                 ]);
         }
 
@@ -167,9 +172,19 @@ class AdminKelompokController extends BaseController
                 ]);
         }
 
-        $this->kelompokModel->update($id, [
+        $updated = $this->kelompokModel->update($id, [
             'nama_kelompok' => $namaKelompok,
         ]);
+
+        if (!$updated) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Kelompok gagal diperbarui.',
+                    'errors'  => $this->kelompokModel->errors(),
+                ]);
+        }
 
         return $this->response->setJSON([
             'status'  => true,
@@ -182,7 +197,7 @@ class AdminKelompokController extends BaseController
      */
     public function delete($id)
     {
-        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+        if (!ctype_digit((string) $id) || (int) $id < 1) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
@@ -192,7 +207,6 @@ class AdminKelompokController extends BaseController
         }
 
         $id = (int) $id;
-
         $kelompok = $this->kelompokModel->find($id);
 
         if (!$kelompok) {
@@ -204,7 +218,16 @@ class AdminKelompokController extends BaseController
                 ]);
         }
 
-        $this->kelompokModel->delete($id);
+        $deleted = $this->kelompokModel->delete($id);
+
+        if (!$deleted) {
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Kelompok gagal dihapus.',
+                ]);
+        }
 
         return $this->response->setJSON([
             'status'  => true,

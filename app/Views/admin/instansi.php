@@ -1,31 +1,20 @@
-<!DOCTYPE html>
-<html lang="id">
+<?= $this->extend('layouts/admin') ?>
 
-<head>
+<?= $this->section('pageTitle') ?>
+<div class="page-heading">
+    <div class="heading-main">
+        <div>
+            <h1>Instansi</h1>
+            <p>Kelola data instansi dan layanan yang tersedia.</p>
+        </div>
+    </div>
+</div>
+<?= $this->endSection() ?>
 
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Instansi - MPP Kota Tangerang</title>
-
-    <!-- Bootstrap -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-    <!-- Bootstrap Icons -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        rel="stylesheet"
-    >
-
-    <style>
-
-        :root {
-
-            --navy: #10233f;
+<?= $this->section('styles') ?>
+<style>
+:root {
+--navy: #10233f;
             --navy-dark: #0b1a30;
             --navy-light: #193456;
 
@@ -42,787 +31,53 @@
             --green: #198754;
             --red: #d9534f;
 
-            --sidebar-width: 260px;
-            --sidebar-collapsed: 78px;
+}
 
-            --transition-sidebar:
-                width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
-        }
+/* =====================================================
+        CONTENT
+===================================================== */
 
-
-        * {
-
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-
-        }
-
-
-        html,
-        body {
-
-            min-height: 100%;
-
-        }
-
-
-        body {
-
-            font-family: Arial, Helvetica, sans-serif;
-
-            background: var(--bg);
-
-            color: var(--text);
-
-            overflow-x: hidden;
-
-        }
-
-
-        /* =====================================================
-           SIDEBAR
-        ===================================================== */
-
-        .sidebar {
-
-            position: fixed;
-
-            top: 0;
-            left: 0;
-
-            width: var(--sidebar-width);
-
-            height: 100vh;
-
-            background: var(--navy);
-
-            color: white;
-
-            z-index: 1000;
-
-            display: flex;
-
-            flex-direction: column;
-
-            overflow: hidden;
-
-            transition:
-                width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        /* =====================================================
-           SIDEBAR HEADER
-        ===================================================== */
-
-        .sidebar-header {
-
-            height: 76px;
-
-            min-height: 76px;
-
-            padding: 0 17px;
-
-            display: flex;
-
-            align-items: center;
-
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-
-            position: relative;
-
-            transition:
-                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        .brand {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-
-            min-width: 0;
-
-            transition:
-                opacity 0.25s ease,
-                transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        .brand-logo {
-
-            width: 40px;
-            height: 40px;
-
-            min-width: 40px;
-
-            border-radius: 10px;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            overflow: hidden;
-
-        }
-
-
-        .brand-logo img {
-
-            width: 100%;
-            height: 100%;
-
-            object-fit: contain;
-
-        }
-
-
-        .brand-text {
-
-            font-size: 16px;
-
-            font-weight: 700;
-
-            white-space: nowrap;
-
-            overflow: hidden;
-
-            transition:
-                opacity 0.25s ease,
-                width 0.35s ease;
-
-        }
-
-
-        /* =====================================================
-           HAMBURGER
-        ===================================================== */
-
-        .sidebar-toggle {
-
-            width: 38px;
-            height: 38px;
-
-            min-width: 38px;
-
-            border: none;
-
-            background: transparent;
-
-            color: white;
-
-            border-radius: 8px;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            font-size: 23px;
-
-            cursor: pointer;
-
-            margin-left: auto;
-
-            transition:
-                background 0.2s ease,
-                transform 0.25s ease;
-
-        }
-
-
-        .sidebar-toggle:hover {
-
-            background: rgba(255,255,255,0.09);
-
-        }
-
-
-        .sidebar-toggle:active {
-
-            transform: scale(0.90);
-
-        }
-
-
-        /* =====================================================
-           WELCOME
-        ===================================================== */
-
-        .welcome {
-
-            padding: 21px 20px 17px;
-
-            min-height: 82px;
-
-            overflow: hidden;
-
-            transition:
-                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                min-height 0.35s ease;
-
-        }
-
-
-        .welcome small {
-
-            display: block;
-
-            color: rgba(255,255,255,0.48);
-
-            font-size: 11px;
-
-            margin-bottom: 4px;
-
-            white-space: nowrap;
-
-            transition:
-                opacity 0.22s ease,
-                transform 0.3s ease;
-
-        }
-
-
-        .welcome strong {
-
-            display: block;
-
-            color: white;
-
-            font-size: 14px;
-
-            white-space: nowrap;
-
-            overflow: hidden;
-
-            text-overflow: ellipsis;
-
-            transition:
-                opacity 0.22s ease,
-                transform 0.3s ease;
-
-        }
-
-
-        /* =====================================================
-           SIDEBAR MENU
-        ===================================================== */
-
-        .sidebar-menu {
-
-            padding: 4px 11px 20px;
-
-            overflow-y: auto;
-
-            overflow-x: hidden;
-
-            scrollbar-width: thin;
-
-            transition:
-                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        .menu-title {
-
-            color: rgba(255,255,255,0.38);
-
-            font-size: 10px;
-
-            font-weight: 700;
-
-            text-transform: uppercase;
-
-            padding: 11px 10px 7px;
-
-            white-space: nowrap;
-
-            overflow: hidden;
-
-            transition:
-                opacity 0.2s ease,
-                height 0.35s ease,
-                padding 0.35s ease;
-
-        }
-
-
-        .menu-item {
-
-            width: 100%;
-
-            height: 42px;
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 13px;
-
-            padding: 0 12px;
-
-            margin-bottom: 3px;
-
-            color: rgba(255,255,255,0.72);
-
-            text-decoration: none;
-
-            border-radius: 8px;
-
-            font-size: 13px;
-
-            white-space: nowrap;
-
-            overflow: hidden;
-
-            transition:
-                background 0.2s ease,
-                color 0.2s ease,
-                padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                gap 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        .menu-item i {
-
-            width: 20px;
-
-            min-width: 20px;
-
-            text-align: center;
-
-            font-size: 16px;
-
-            transition:
-                transform 0.3s ease;
-
-        }
-
-
-        .menu-item span {
-
-            overflow: hidden;
-
-            transition:
-                opacity 0.22s ease,
-                max-width 0.35s ease;
-
-        }
-
-
-        .menu-item:hover {
-
-            color: white;
-
-            background: rgba(255,255,255,0.08);
-
-        }
-
-
-        .menu-item.active {
-
-            background: var(--yellow);
-
-            color: var(--navy);
-
-            font-weight: 600;
-
-        }
-
-
-        /* =====================================================
-           COLLAPSED SIDEBAR
-        ===================================================== */
-
-        body.sidebar-collapsed .sidebar {
-
-            width: var(--sidebar-collapsed);
-
-        }
-
-
-        body.sidebar-collapsed .sidebar-header {
-
-            padding: 0 20px;
-
-            justify-content: center;
-
-        }
-
-
-        body.sidebar-collapsed .brand {
-
-            width: 0;
-
-            opacity: 0;
-
-            transform: translateX(-10px);
-
-            pointer-events: none;
-
-        }
-
-
-        body.sidebar-collapsed .sidebar-toggle {
-
-            margin-left: 0;
-
-        }
-
-
-        body.sidebar-collapsed .welcome {
-
-            min-height: 35px;
-
-            padding: 8px 0;
-
-            display: flex;
-
-            justify-content: center;
-
-        }
-
-
-        body.sidebar-collapsed .welcome small,
-        body.sidebar-collapsed .welcome strong {
-
-            opacity: 0;
-
-            transform: translateX(-10px);
-
-            position: absolute;
-
-            pointer-events: none;
-
-        }
-
-
-        body.sidebar-collapsed .sidebar-menu {
-
-            padding-left: 10px;
-
-            padding-right: 10px;
-
-        }
-
-
-        body.sidebar-collapsed .menu-title {
-
-            height: 0;
-
-            padding-top: 0;
-
-            padding-bottom: 0;
-
-            opacity: 0;
-
-        }
-
-
-        body.sidebar-collapsed .menu-item {
-
-            justify-content: center;
-
-            padding-left: 0;
-
-            padding-right: 0;
-
-            gap: 0;
-
-        }
-
-
-        body.sidebar-collapsed .menu-item span {
-
-            max-width: 0;
-
-            opacity: 0;
-
-            pointer-events: none;
-
-        }
-
-
-        body.sidebar-collapsed .menu-item i {
-
-            transform: scale(1.02);
-
-        }
-
-
-        /* =====================================================
-           MAIN CONTENT
-        ===================================================== */
-
-        .main-content {
-
-            margin-left: var(--sidebar-width);
-
-            min-height: 100vh;
-
-            transition:
-                margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-
-        }
-
-
-        body.sidebar-collapsed .main-content {
-
-            margin-left: var(--sidebar-collapsed);
-
-        }
-
-
-        /* =====================================================
-           TOPBAR
-        ===================================================== */
-
-        .topbar {
-
-            height: 76px;
-
-            background: var(--white);
-
-            border-bottom: 1px solid var(--border);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            padding: 0 30px;
-
-        }
-
-
-        .topbar-left {
-
-            color: var(--navy);
-
-            font-size: 17px;
-
-            font-weight: 700;
-
-        }
-
-
-        .topbar-left span {
-
-            color: var(--muted);
-
-            font-size: 12px;
-
-            font-weight: 400;
-
-            margin-left: 8px;
-
-        }
-
-
-        .topbar-right {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 18px;
-
-        }
-
-
-        .date-wrapper {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 8px;
-
-        }
-
-
-        .date-wrapper i {
-
-            color: var(--navy);
-
-            font-size: 17px;
-
-        }
-
-
-        .date-input {
-
-            height: 40px;
-
-            border: 1px solid var(--border);
-
-            border-radius: 8px;
-
-            background: white;
-
-            color: var(--text);
-
-            font-size: 13px;
-
-            padding: 0 11px;
-
-            outline: none;
-
-            cursor: pointer;
-
-            transition:
-                border-color 0.2s ease,
-                box-shadow 0.2s ease;
-
-        }
-
-
-        .date-input:hover {
-
-            border-color: #c7ced8;
-
-        }
-
-
-        .date-input:focus {
-
-            border-color: var(--navy);
-
-            box-shadow:
-                0 0 0 3px rgba(16,35,63,0.08);
-
-        }
-
-
-        /* =====================================================
-           LOGOUT
-        ===================================================== */
-
-        .logout-btn {
-
-            height: 40px;
-
-            padding: 0 14px;
-
-            border: 1px solid #eadfbd;
-
-            border-radius: 8px;
-
-            background: var(--yellow-soft);
-
-            color: #806600;
-
-            text-decoration: none;
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 7px;
-
-            font-size: 13px;
-
-            font-weight: 600;
-
-            transition:
-                background 0.2s ease,
-                color 0.2s ease,
-                border-color 0.2s ease;
-
-        }
-
-
-        .logout-btn:hover {
-
-            background: var(--yellow);
-
-            border-color: var(--yellow);
-
-            color: var(--navy);
-
-        }
-
-
-        /* =====================================================
-           INSTANSI
-        ===================================================== */
-
-        .instansi-content {
-
-            padding: 28px 30px 40px;
-
-        }
-
-
-        .instansi-header {
-
-            display: flex;
+.instansi-content {
+padding: 28px 30px 40px;
+}
+.instansi-header {
+display: flex;
 
             align-items: center;
 
             gap: 10px;
 
             margin-bottom: 22px;
-
-        }
-
-
-        .instansi-header i {
-
-            color: var(--navy);
+}
+.instansi-header i {
+color: var(--navy);
 
             font-size: 23px;
-
-        }
-
-
-        .instansi-header h1 {
-
-            margin: 0;
+}
+.instansi-header h1 {
+margin: 0;
 
             color: var(--navy);
 
             font-size: 25px;
 
             font-weight: 700;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            STATISTIK
         ===================================================== */
-
-        .instansi-stats {
-
-            display: grid;
+.instansi-stats {
+display: grid;
 
             grid-template-columns: repeat(3, 1fr);
 
             gap: 14px;
 
             margin-bottom: 20px;
-
-        }
-
-
-        .stat-card {
-
-            background: var(--white);
+}
+.stat-card {
+background: var(--white);
 
             border: 1px solid var(--border);
 
@@ -837,13 +92,9 @@
             align-items: center;
 
             gap: 13px;
-
-        }
-
-
-        .stat-icon {
-
-            width: 40px;
+}
+.stat-icon {
+width: 40px;
 
             height: 40px;
 
@@ -862,209 +113,164 @@
             justify-content: center;
 
             font-size: 18px;
-
-        }
-
-
-        .stat-info small {
-
-            display: block;
+}
+.stat-info small {
+display: block;
 
             color: var(--muted);
 
             font-size: 11px;
 
             margin-bottom: 3px;
-
-        }
-
-
-        .stat-info strong {
-
-            display: block;
+}
+.stat-info strong {
+display: block;
 
             color: var(--navy);
 
             font-size: 18px;
 
             font-weight: 700;
-
-        }
-
-
-        /* =====================================================
-           FILTER
-        ===================================================== */
-
-        .instansi-filter {
-
-            display: flex;
-
-            align-items: center;
-
-            flex-wrap: wrap;
-
-            gap: 12px;
-
-            padding-bottom: 20px;
-
-            border-bottom: 1px solid var(--border);
-
-        }
-
-
-        .filter-label {
-
-            color: #6b7280;
-
-            font-size: 13px;
-
-            font-weight: 700;
-
-            margin-right: 4px;
-
-        }
-
-
-        .search-wrapper {
-
-            position: relative;
-
-        }
-
-
-        .search-wrapper i {
-
-            position: absolute;
-
-            left: 12px;
-
-            top: 50%;
-
-            transform: translateY(-50%);
-
-            color: var(--muted);
-
-            font-size: 14px;
-
-        }
-
-
-        .search-input {
-
-            height: 38px;
-
-            width: 260px;
-
-            border: 1px solid var(--border);
-
-            border-radius: 7px;
-
-            background: var(--white);
-
-            color: var(--text);
-
-            font-size: 13px;
-
-            padding: 0 10px 0 34px;
-
-            outline: none;
-
-        }
-
-
-        .search-input:focus {
-
-            border-color: var(--navy);
-
-            box-shadow:
-                0 0 0 3px rgba(16,35,63,0.08);
-
-        }
-
-
-        .group-select {
-
-            height: 38px;
-
-            width: 140px;
-
-            border: 1px solid var(--border);
-
-            border-radius: 7px;
-
-            background: var(--white);
-
-            color: var(--text);
-
-            font-size: 13px;
-
-            padding: 0 10px;
-
-            outline: none;
-
-        }
-
-
-        .group-select:focus {
-
-            border-color: var(--navy);
-
-            box-shadow:
-                0 0 0 3px rgba(16,35,63,0.08);
-
-        }
-
-
-        .btn-add {
-
-            height: 38px;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 7px;
-
-            padding: 0 16px;
-
-            border: none;
-
-            border-radius: 20px;
-
-            background: var(--navy);
-
-            color: white;
-
-            font-size: 12px;
-
-            font-weight: 600;
-
-            cursor: pointer;
-
-            transition: 0.2s ease;
-
-            margin-left: auto;
-
-        }
-
-
-        .btn-add:hover {
-
-            background: var(--navy-light);
-
-            color: white;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
+   FILTER
+===================================================== */
+.instansi-filter-panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 17px 18px 18px;
+    margin-bottom: 18px;
+}
+
+.filter-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--navy);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.filter-title i {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.instansi-filter {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 170px auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-wrapper {
+    position: relative;
+    min-width: 0;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    height: 39px;
+    border: 1px solid #dfe4ea;
+    border-radius: 7px;
+    background: var(--white);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 0 12px 0 34px;
+    outline: none;
+}
+
+.search-input:focus,
+.group-select:focus {
+    border-color: #aab7c8;
+    box-shadow: 0 0 0 3px rgba(16, 35, 63, 0.08);
+}
+
+.group-select-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.group-select-wrap::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 13px;
+    width: 8px;
+    height: 8px;
+    border-right: 1.7px solid #475569;
+    border-bottom: 1.7px solid #475569;
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+}
+
+.group-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    display: block;
+    width: 100%;
+    height: 39px;
+    border: 1px solid #dfe4ea;
+    border-radius: 7px;
+    background: var(--white);
+    color: #475467;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 400;
+    text-align: left;
+    text-align-last: left;
+    padding: 0 28px 0 12px;
+    outline: none;
+    cursor: pointer;
+}
+
+.group-select option {
+    font-weight: 400;
+    text-align: left;
+}
+
+.btn-add {
+    height: 39px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 7px;
+    background: var(--navy);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-add:hover {
+    background: var(--navy-light);
+    color: #fff;
+}
+
+/* =====================================================
            TABLE
         ===================================================== */
-
-        .instansi-table-card {
-
-            margin-top: 20px;
+.instansi-table-card {
+margin-top: 20px;
 
             background: var(--white);
 
@@ -1076,146 +282,87 @@
 
             box-shadow:
                 0 4px 16px rgba(16,35,63,0.05);
-
-        }
-
-
-        .instansi-table-wrapper {
-
-            overflow-x: auto;
-
-        }
-
-
-        .instansi-table {
-
-            width: 100%;
+}
+.instansi-table-wrapper {
+overflow-x: auto;
+}
+.instansi-table {
+width: 100%;
 
             min-width: 850px;
 
             border-collapse: collapse;
 
             font-size: 13px;
-
-        }
-
-
-        .instansi-table thead th {
-
-            height: 52px;
-
-            padding: 0 14px;
-
-            background: #fafafa;
-
-            border-bottom: 1px solid var(--border);
-
-            color: #64748b;
-
-            text-align: left;
-
-            font-size: 12px;
-
-            font-weight: 600;
-
-        }
-
-
-        .instansi-table thead th:nth-child(1) {
-
-            width: 25%;
-
-        }
-
-
-        .instansi-table thead th:nth-child(2) {
-
-            width: 48%;
-
-        }
-
-
-        .instansi-table thead th:nth-child(3) {
-
-            width: 12%;
-
-        }
-
-
-        .instansi-table thead th:nth-child(4) {
-
-            width: 15%;
-
-            text-align: center;
-
-        }
-
-
-        .instansi-table tbody td {
-
-            padding: 14px;
+}
+.instansi-table thead th {
+    height: 52px;
+    padding: 0 14px;
+    background: #fafafa;
+    border-bottom: 1px solid var(--border);
+    color: #64748b;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 12px;
+    font-weight: 600;
+}
+.instansi-table thead th:nth-child(1) { width: 23%; }
+.instansi-table thead th:nth-child(2) { width: 36%; }
+.instansi-table thead th:nth-child(3) { width: 15%; }
+.instansi-table thead th:nth-child(4) { width: 13%; }
+.instansi-table thead th:nth-child(5) { width: 13%; }
+.instansi-table tbody td {
+padding: 14px;
 
             border-bottom: 1px solid #edf0f3;
 
             color: #64748b;
 
             vertical-align: top;
-
-        }
-
-
-        .instansi-table tbody tr:last-child td {
-
-            border-bottom: none;
-
-        }
-
-
-        .instansi-table tbody tr:hover td {
-
-            background: #fcfcfc;
-
-        }
-
-
-        /* =====================================================
+}
+.instansi-table tbody td:nth-child(3),
+.instansi-table tbody td:nth-child(4) {
+    text-align: center;
+    vertical-align: top;
+}
+.instansi-table tbody td:nth-child(3) .service-count-badge,
+.instansi-table tbody td:nth-child(4) .status-badge {
+    margin-left: auto;
+    margin-right: auto;
+}
+.instansi-table tbody td:nth-child(4) .status-badge {
+    justify-content: center;
+}
+.instansi-table tbody tr:last-child td {
+border-bottom: none;
+}
+.instansi-table tbody tr:hover td {
+background: #fcfcfc;
+}
+/* =====================================================
            NAMA INSTANSI
         ===================================================== */
-
-        .instansi-name {
-
-            display: flex;
+.instansi-name {
+display: flex;
 
             align-items: flex-start;
 
             gap: 9px;
-
-        }
-
-
-        .instansi-info {
-
-            min-width: 0;
-
-        }
-
-
-        .instansi-title {
-
-            color: #64748b;
+}
+.instansi-info {
+min-width: 0;
+}
+.instansi-title {
+color: #64748b;
 
             font-weight: 700;
 
             font-size: 13px;
 
             margin-bottom: 5px;
-
-        }
-
-
-        .instansi-group {
-
-            display: inline-block;
+}
+.instansi-group {
+display: inline-block;
 
             color: #7b8798;
 
@@ -1226,17 +373,12 @@
             padding: 3px 7px;
 
             font-size: 10px;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            SOUND
         ===================================================== */
-
-        .sound-btn {
-
-            width: 32px;
+.sound-btn {
+width: 32px;
 
             height: 32px;
 
@@ -1259,50 +401,33 @@
             cursor: pointer;
 
             transition: 0.2s ease;
-
-        }
-
-
-        .sound-btn:hover {
-
-            background: var(--yellow);
+}
+.sound-btn:hover {
+background: var(--yellow);
 
             color: var(--navy);
 
             border-color: var(--yellow);
-
-        }
-
-
-        .sound-btn.speaking {
-
-            background: var(--yellow);
+}
+.sound-btn.speaking {
+background: var(--yellow);
 
             color: var(--navy);
 
             border-color: var(--yellow);
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            LAYANAN
         ===================================================== */
-
-        .service-list {
-
-            display: flex;
+.service-list {
+display: flex;
 
             flex-direction: column;
 
             gap: 6px;
-
-        }
-
-
-        .service-item {
-
-            display: flex;
+}
+.service-item {
+display: flex;
 
             align-items: flex-start;
 
@@ -1311,24 +436,16 @@
             color: #64748b;
 
             line-height: 1.4;
-
-        }
-
-
-        .service-item i {
-
-            color: var(--green);
+}
+.service-item i {
+color: var(--green);
 
             font-size: 13px;
 
             margin-top: 2px;
-
-        }
-
-
-        .service-count-badge {
-
-            display: inline-flex;
+}
+.service-count-badge {
+display: inline-flex;
 
             align-items: center;
 
@@ -1349,17 +466,12 @@
             font-weight: 700;
 
             white-space: nowrap;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            STATUS
         ===================================================== */
-
-        .status-badge {
-
-            display: inline-flex;
+.status-badge {
+display: inline-flex;
 
             align-items: center;
 
@@ -1370,54 +482,37 @@
             font-size: 11px;
 
             font-weight: 600;
-
-        }
-
-
-        .status-dot {
-
-            width: 7px;
+}
+.status-dot {
+width: 7px;
 
             height: 7px;
 
             border-radius: 50%;
 
             background: #198754;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            AKSI
         ===================================================== */
-
-        .aksi {
-
-            text-align: center;
-
-        }
-
-
-        .action-buttons {
-
-            display: flex;
+.aksi {
+text-align: center;
+}
+.action-buttons {
+display: flex;
 
             align-items: center;
 
             justify-content: center;
 
             gap: 6px;
-
-        }
-
-
-        .btn-action {
-
-            width: 32px;
+}
+.btn-action {
+width: 32px;
 
             height: 32px;
 
-            border: 1px solid var(--border);
+            border: 1px solid var(--navy);
 
             border-radius: 7px;
 
@@ -1434,195 +529,153 @@
             cursor: pointer;
 
             transition: 0.2s ease;
+}
+.btn-action.delete {
+width: 32px;
 
-        }
+            height: 32px;
 
+            border: 1px solid var(--red);
 
-        .btn-action:hover {
+            border-radius: 7px;
 
-            background: var(--navy);
+            background: white;
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            color: var(--red);
+
+            cursor: pointer;
+
+            transition: 0.2s ease;
+}
+.btn-action:hover {
+background: var(--navy);
 
             border-color: var(--navy);
 
             color: white;
+}
+.btn-action.delete:hover {
+background: #c62828;
 
-        }
+            border-color: #c62828;
 
-
-        .btn-action.delete:hover {
-
-            background: #fff1f0;
-
-            border-color: #f0c5c2;
-
-            color: var(--red);
-
-        }
-
-
-        /* =====================================================
+            color: var(--white);
+}
+/* =====================================================
            EMPTY
         ===================================================== */
-
-        .empty-row {
-
-            display: none;
-
-        }
-
-
-        .empty-content {
-
-            text-align: center;
+.empty-row {
+display: none;
+}
+.empty-content {
+text-align: center;
 
             padding: 45px 20px;
-
-        }
-
-
-        .empty-content i {
-
-            display: block;
+}
+.empty-content i {
+display: block;
 
             font-size: 32px;
 
             color: #c5ccd5;
 
             margin-bottom: 10px;
-
-        }
-
-
-        .empty-content strong {
-
-            display: block;
+}
+.empty-content strong {
+display: block;
 
             color: #64748b;
 
             font-size: 13px;
 
             margin-bottom: 4px;
-
-        }
-
-
-        .empty-content span {
-
-            color: var(--muted);
+}
+.empty-content span {
+color: var(--muted);
 
             font-size: 11px;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            MODAL
         ===================================================== */
-
-        .modal-content {
-
-            border: none;
+.modal-content {
+border: none;
 
             border-radius: 9px;
 
             overflow: hidden;
-
-        }
-
-
-        .modal-header {
-
-            background: var(--navy);
+}
+.modal-header {
+background: var(--navy);
 
             color: white;
 
             border-bottom: none;
-
-        }
-
-
-        .modal-title {
-
-            font-size: 16px;
+}
+.modal-title {
+font-size: 16px;
 
             font-weight: 700;
-
-        }
-
-
-        .modal-header .btn-close {
-
-            filter: brightness(0) invert(1);
-
-        }
-
-
-        .modal-body {
-
-            padding: 22px;
-
-        }
-
-
-        .form-label {
-
-            color: #64748b;
+}
+.modal-header .btn-close {
+filter: brightness(0) invert(1);
+}
+.modal-body {
+padding: 22px;
+}
+.form-label {
+color: #64748b;
 
             font-size: 12px;
 
             font-weight: 600;
-
-        }
-
-
-        .form-control,
-        .form-select {
-
-            font-size: 13px;
+}
+.form-control,
+.form-select {
+font-size: 13px;
 
             border-color: var(--border);
 
             border-radius: 7px;
-
-        }
-
-
-        .form-control:focus,
-        .form-select:focus {
-
-            border-color: var(--navy);
+}
+.form-control:focus,
+.form-select:focus {
+border-color: var(--navy);
 
             box-shadow:
                 0 0 0 3px rgba(16,35,63,0.08);
-
-        }
-
-
-        .modal-footer {
-
-            border-top: 1px solid var(--border);
-
-        }
-
-
-        .btn-modal-cancel {
-
-            border: 1px solid var(--border);
+}
+.modal-footer {
+border-top: 1px solid var(--border);
+}
+.btn-modal-cancel {
+border: 1px solid var(--border);
 
             background: white;
 
-            color: #64748b;
+            border-color: #c62828;
+            
+            color: #c62828;
 
             border-radius: 7px;
 
             font-size: 12px;
+}
+.btn-modal-cancel:hover {
+background: #c62828;
 
-        }
+            border-color: #c62828;
 
-
-        .btn-modal-save {
-
-            border: none;
+            color: var(--white);
+}
+.btn-modal-save {
+border: none;
 
             background: var(--navy);
 
@@ -1631,518 +684,110 @@
             border-radius: 7px;
 
             font-size: 12px;
-
-        }
-
-
-        .btn-modal-save:hover {
-
-            background: var(--navy-light);
+}
+.btn-modal-save:hover {
+background: var(--navy-light);
 
             color: white;
-
-        }
-
-
-        /* =====================================================
+}
+/* =====================================================
            RESPONSIVE
         ===================================================== */
-
-        @media (max-width: 1000px) {
-
-            .instansi-stats {
-
-                grid-template-columns: 1fr 1fr;
-
-            }
-
-        }
-
-
-        @media (max-width: 900px) {
-
-            .btn-add {
-
-                width: 100%;
-
-                justify-content: center;
-
-                margin-left: 0;
-
-            }
-
-        }
-
-
-        @media (max-width: 700px) {
-
-            .sidebar {
-
-                width: var(--sidebar-width);
-
-                transform: translateX(-100%);
-
-                box-shadow:
-                    5px 0 25px rgba(0,0,0,0.15);
-
-            }
-
-
-            body.mobile-sidebar-open .sidebar {
-
-                transform: translateX(0);
-
-            }
-
-
-            .main-content,
-            body.sidebar-collapsed .main-content {
-
-                margin-left: 0;
-
-            }
-
-
-            .topbar {
-
-                height: auto;
-
-                min-height: 76px;
-
-                padding: 14px 18px;
-
-                gap: 10px;
-
-            }
-
-
-            .topbar-right {
-
-                gap: 10px;
-
-            }
-
-
-            .date-input {
-
-                width: 140px;
-
-            }
-
-
-            .instansi-content {
-
-                padding: 20px;
-
-            }
-
-        }
-
-
-        @media (max-width: 600px) {
-
-            .instansi-header h1 {
-
-                font-size: 21px;
-
-            }
-
-
-            .instansi-stats {
-
-                grid-template-columns: 1fr;
-
-            }
-
-
-            .instansi-filter {
-
-                align-items: stretch;
-
-                flex-direction: column;
-
-            }
-
-
-            .search-wrapper,
-            .search-input,
-            .group-select {
-
-                width: 100%;
-
-            }
-
-
-            .btn-add {
-
-                width: 100%;
-
-            }
-
-
-        }
-
-
-        @media (max-width: 430px) {
-
-            .topbar {
-
-                justify-content: space-between;
-
-            }
-
-
-            .logout-btn span {
-
-                display: none;
-
-            }
-
-
-            .logout-btn {
-
-                width: 40px;
-
-                padding: 0;
-
-                justify-content: center;
-
-            }
-
-
-            .date-input {
-
-                width: 135px;
-
-            }
-
-        }
-
-    </style>
-
-</head>
-
-
-<body>
-
-
-    <!-- =====================================================
-         SIDEBAR
-    ===================================================== -->
-
-    <aside class="sidebar">
-
-
-        <div class="sidebar-header">
-
-
-            <div class="brand">
-
-                <div class="brand-logo">
-
-                    <img
-                        src="<?= base_url('assets/images/logokota.png') ?>"
-                        alt="logokota"
-                    >
-
-                </div>
-
-
-                <div class="brand-text">
-
-                    MPP Kota Tangerang
-
-                </div>
-
-            </div>
-
-
-            <button
-                type="button"
-                class="sidebar-toggle"
-                id="sidebarToggle"
-                title="Buka / Tutup Sidebar"
-            >
-
-                <i class="bi bi-list"></i>
-
-            </button>
-
-
-        </div>
-
-
-        <div class="welcome">
-
-            <small>
-                Welcome,
-            </small>
-
-            <strong>
-                Admin MPP
-            </strong>
-
-        </div>
-
-
-        <nav class="sidebar-menu">
-
-
-            <div class="menu-title">
-                Menu Utama
-            </div>
-
-
-            <!-- DASHBOARD -->
-
-            <a
-                href="<?= base_url('admin/dashboard') ?>"
-                class="menu-item"
-            >
-
-                <i class="bi bi-grid"></i>
-
-                <span>
-                    Dashboard
-                </span>
-
-            </a>
-
-
-            <!-- LAPORAN PROSES -->
-
-            <a
-                href="<?= site_url('admin/laporan-proses-antrean') ?>"
-                class="menu-item"
-            >
-
-                <i class="bi bi-hourglass-split"></i>
-
-                <span>
-                    Laporan Proses Antrean
-                </span>
-
-            </a>
-
-
-            <!-- LAPORAN RINGKASAN -->
-
-            <a
-                href="<?= site_url('admin/laporan-ringkasan-antrean') ?>"
-                class="menu-item"
-            >
-
-                <i class="bi bi-bar-chart"></i>
-
-                <span>
-                    Laporan Ringkasan Antrean
-                </span>
-
-            </a>
-
-
-            <div class="menu-title">
-                Master Data
-            </div>
-
-
-            <!-- INSTANSI AKTIF -->
-
-            <a
-                href="<?= site_url('admin/instansi/halaman') ?>"
-                class="menu-item active"
-            >
-
-                <i class="bi bi-building"></i>
-
-                <span>
-                    Instansi
-                </span>
-
-            </a>
-
-
-            <!-- PETUGAS -->
-
-            <a
-                href="<?= site_url('admin/petugas') ?>"
-                class="menu-item"
-            >
-
-                <i class="bi bi-person"></i>
-
-                <span>
-                    Petugas
-                </span>
-
-            </a>
-
-
-            <div class="menu-title">
-                Pengaturan
-            </div>
-
-
-            <a
-                href="<?= site_url('admin/pengaturan-kelompok') ?>"
-                class="menu-item"
-            >
-
-                <i class="bi bi-people"></i>
-
-                <span>
-                    Pengaturan Kelompok
-                </span>
-
-            </a>
-
-
-            <a
-                href="<?= base_url('admin/pengaturan-layar') ?>"
-                class="menu-item"
-                onclick="return false;"
-            >
-
-                <i class="bi bi-display"></i>
-
-                <span>
-                    Pengaturan Layar
-                </span>
-
-            </a>
-
-
-            <a
-                href="<?= base_url('admin/pengaturan-hari-libur') ?>"
-                class="menu-item"
-                onclick="return false;"
-            >
-
-                <i class="bi bi-calendar-x"></i>
-
-                <span>
-                    Pengaturan Hari Libur
-                </span>
-
-            </a>
-
-
-            <a
-                href="<?= site_url('admin/log-user-login') ?>"
-                class="menu-item"
-                onclick="return false;"
-            >
-
-                <i class="bi bi-clock-history"></i>
-
-                <span>
-                    Log User Login
-                </span>
-
-            </a>
-
-
-            <a
-                href="<?= site_url('admin/absensi-petugas') ?>"
-                class="menu-item"
-                onclick="return false;"
-            >
-
-                <i class="bi bi-person-check"></i>
-
-                <span>
-                    Absensi Petugas
-                </span>
-
-            </a>
-
-
-        </nav>
-
-    </aside>
-
-
-
-    <!-- =====================================================
-         MAIN CONTENT
-    ===================================================== -->
-
-    <main class="main-content">
-
-
-        <!-- TOPBAR -->
-
-        <header class="topbar">
-
-
-            <div class="topbar-left">
-
-                Admin
-
-                <span>
-                    Monitoring layanan MPP Kota Tangerang
-                </span>
-
-            </div>
-
-
-            <div class="topbar-right">
-
-
-                <div class="date-wrapper">
-
-                    <i class="bi bi-calendar3"></i>
-
-                    <input
-                        type="date"
-                        id="tanggal"
-                        class="date-input"
-                        value="<?= date('Y-m-d') ?>"
-                    >
-
-                </div>
-
-
-                <a
-                    href="#"
-                    class="logout-btn"
-                    id="logoutButton"
-                >
-
-                    <i class="bi bi-box-arrow-right"></i>
-
-                    <span>
-                        Logout
-                    </span>
-
-                </a>
-
-
-            </div>
-
-        </header>
-
-
-
-        <!-- =====================================================
-             HALAMAN INSTANSI
-        ===================================================== -->
-
-        <section class="instansi-content">
-
-
-            <!-- HEADER -->
-
-            <div class="instansi-header">
-
-                <h1>
-                    Instansi
-                </h1>
-
-            </div>
-
-            
-            <?php
+@media (max-width: 1250px) {
+    .instansi-filter {
+        grid-template-columns: minmax(180px, 1fr) 160px auto;
+    }
+}
+
+@media (max-width: 1000px) {
+    .instansi-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .instansi-filter {
+        grid-template-columns: minmax(180px, 1fr) 160px;
+    }
+
+    .btn-add {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+}
+@media (max-width: 700px) {
+.instansi-content {
+padding: 20px;
+}
+}
+@media (max-width: 700px) {
+    .instansi-content {
+        padding: 20px;
+    }
+
+    .page-heading h1 {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 600px) {
+    .instansi-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .instansi-filter {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-add {
+        width: 100%;
+    }
+}
+
+/* Heading mengikuti tipografi halaman laporan proses antrean. */
+.page-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.heading-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.page-heading h1 {
+    margin: 0;
+    color: var(--navy);
+    font-size: 23px;
+    line-height: 1.25;
+    font-weight: 700;
+}
+
+.page-heading p {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.instansi-content {
+    padding: 0;
+}
+
+@media (max-width: 900px) {
+    .page-heading {
+        display: block;
+    }
+}
+
+</style>
+<?= $this->endSection() ?>
+
+<?= $this->section('content') ?>
+<section class="instansi-content">
+
+<?php
 
             $totalInstansi = count($instansi ?? []);
 
@@ -2161,7 +806,6 @@
             ================================================== -->
 
             <div class="instansi-stats">
-
 
                 <div class="stat-card">
 
@@ -2185,7 +829,6 @@
 
                 </div>
 
-
                 <div class="stat-card">
 
                     <div class="stat-icon">
@@ -2207,7 +850,6 @@
                     </div>
 
                 </div>
-
 
                 <div class="stat-card">
 
@@ -2231,74 +873,49 @@
 
                 </div>
 
-
             </div>
-
-
 
             <!-- =================================================
                  FILTER
             ================================================== -->
 
-            <div class="instansi-filter">
-
-
-                <span class="filter-label">
-                    DATA INSTANSI:
-                </span>
-
-
-                <div class="search-wrapper">
-
-                    <i class="bi bi-search"></i>
-
-                    <input
-                        type="text"
-                        id="searchInstansi"
-                        class="search-input"
-                        placeholder="Cari instansi atau layanan..."
-                    >
-
+            <div class="instansi-filter-panel">
+                <div class="filter-title">
+                    <i class="bi bi-funnel"></i>
+                    Filter Data Instansi
                 </div>
 
+                <div class="instansi-filter">
+                    <div class="search-wrapper">
+                        <i class="bi bi-search"></i>
+                        <input
+                            type="text"
+                            id="searchInstansi"
+                            class="search-input"
+                            placeholder="Cari instansi atau layanan..."
+                        >
+                    </div>
 
-                <select
-                    id="filterGrup"
-                    class="group-select"
-                >
+                    <div class="group-select-wrap">
+                        <select id="filterGrup" class="group-select">
+                            <option value="all">Semua Grup</option>
+                            <?php for ($grup = 1; $grup <= 8; $grup++): ?>
+                                <option value="<?= $grup ?>">Grup <?= $grup ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
 
-                    <option value="all">
-                        Semua Grup
-                    </option>
-
-                    <?php for ($grup = 1; $grup <= 8; $grup++): ?>
-
-                        <option value="<?= $grup ?>">
-                            Grup <?= $grup ?>
-                        </option>
-
-                    <?php endfor; ?>
-
-                </select>
-
-
-                <button
-                    type="button"
-                    class="btn-add"
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalTambah"
-                >
-
-                    <i class="bi bi-plus-lg"></i>
-
-                    Tambah Instansi
-
-                </button>
-
-
+                    <button
+                        type="button"
+                        class="btn-add"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalTambah"
+                    >
+                        <i class="bi bi-plus-lg"></i>
+                        Tambah Instansi
+                    </button>
+                </div>
             </div>
-
-
 
             <!-- =================================================
                  TABLE
@@ -2306,15 +923,12 @@
 
             <div class="instansi-table-card">
 
-
                 <div class="instansi-table-wrapper">
-
 
                     <table
                         class="instansi-table"
                         id="instansiTable"
                     >
-
 
                         <thead>
 
@@ -2344,9 +958,7 @@
 
                         </thead>
 
-
                         <tbody>
-
 
                             <?php foreach ($instansi as $item): ?>
 
@@ -2359,13 +971,11 @@
                                     ) ?>"
                                 >
 
-
                                     <!-- NAMA -->
 
                                     <td>
 
                                         <div class="instansi-name">
-
 
                                             <!-- SUARA NAMA INSTANSI -->
 
@@ -2380,7 +990,6 @@
 
                                             </button>
 
-
                                             <div class="instansi-info">
 
                                                 <div class="instansi-title">
@@ -2388,7 +997,6 @@
                                                     <?= esc($item['nama_instansi']) ?>
 
                                                 </div>
-
 
                                                 <span class="instansi-group">
 
@@ -2398,19 +1006,15 @@
 
                                             </div>
 
-
                                         </div>
 
                                     </td>
-
-
 
                                     <!-- LAYANAN -->
 
                                     <td>
 
                                         <div class="service-list">
-
 
                                             <?php foreach ($item['layanan'] as $layanan): ?>
 
@@ -2422,17 +1026,13 @@
                                                         <?= esc($layanan['nama_layanan']) ?>
                                                     </span>
 
-
                                                 </div>
 
                                             <?php endforeach; ?>
 
-
                                         </div>
 
                                     </td>
-
-
 
                                     <!-- JUMLAH LAYANAN -->
 
@@ -2443,7 +1043,6 @@
                                         </span>
 
                                     </td>
-
 
                                     <!-- STATUS -->
 
@@ -2459,14 +1058,11 @@
 
                                     </td>
 
-
-
                                     <!-- AKSI -->
 
                                     <td class="aksi">
 
                                         <div class="action-buttons">
-
 
                                             <button
                                                 type="button"
@@ -2479,7 +1075,6 @@
 
                                             </button>
 
-
                                             <button
                                                 type="button"
                                                 class="btn-action delete"
@@ -2491,17 +1086,13 @@
 
                                             </button>
 
-
                                         </div>
 
                                     </td>
 
-
                                 </tr>
 
                             <?php endforeach; ?>
-
-
 
                             <!-- EMPTY -->
 
@@ -2530,25 +1121,15 @@
 
                             </tr>
 
-
                         </tbody>
-
 
                     </table>
 
-
                 </div>
-
 
             </div>
 
-
         </section>
-
-
-    </main>
-
-
 
     <!-- =====================================================
          MODAL TAMBAH INSTANSI
@@ -2565,7 +1146,6 @@
 
             <div class="modal-content">
 
-
                 <div class="modal-header">
 
                     <h5 class="modal-title">
@@ -2580,12 +1160,9 @@
 
                 </div>
 
-
                 <div class="modal-body">
 
-
                     <form id="formTambahInstansi">
-
 
                         <div class="mb-3">
 
@@ -2602,7 +1179,6 @@
                             >
 
                         </div>
-
 
                         <div class="mb-3">
 
@@ -2632,7 +1208,6 @@
 
                         </div>
 
-
                         <div class="mb-3">
                             <label class="form-label">Layanan</label>
 
@@ -2650,15 +1225,11 @@
                             </button>
                         </div>
 
-
                     </form>
-
 
                 </div>
 
-
                 <div class="modal-footer">
-
 
                     <button
                         type="button"
@@ -2670,7 +1241,6 @@
 
                     </button>
 
-
                     <button
                         type="button"
                         class="btn btn-modal-save"
@@ -2681,198 +1251,63 @@
 
                     </button>
 
-
                 </div>
-
 
             </div>
 
         </div>
 
     </div>
+<?= $this->endSection() ?>
 
-
-
-    <!-- Bootstrap JS -->
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
-
-    <script>
-
-        /* =================================================
-           SIDEBAR
-        ================================================= */
-
-        const sidebarToggle =
-            document.getElementById('sidebarToggle');
-
-
-        sidebarToggle.addEventListener('click', function () {
-
-            if (window.innerWidth <= 700) {
-
-                document.body.classList.toggle(
-                    'mobile-sidebar-open'
-                );
-
-            } else {
-
-                document.body.classList.toggle(
-                    'sidebar-collapsed'
-                );
-
-            }
-
-        });
-
-
-
-        /* =================================================
-           LOGOUT
-        ================================================= */
-
-        const logoutButton =
-            document.getElementById('logoutButton');
-
-
-        logoutButton.addEventListener('click', function (event) {
-
-            if (!window.confirm(
-                'Apakah Anda yakin ingin logout?'
-            )) {
-
-                event.preventDefault();
-
-            }
-
-        });
-
-
-
-        /* =================================================
-           DATE TOPBAR
-        ================================================= */
-
-        const tanggal =
-            document.getElementById('tanggal');
-
-
-        if (tanggal) {
-
-            tanggal.addEventListener('change', function () {
-
-                console.log(
-                    'Tanggal yang dipilih:',
-                    this.value
-                );
-
-            });
-
-        }
-
-
-
-        /* =================================================
-           MOBILE SIDEBAR
-        ================================================= */
-
-        document.addEventListener('click', function (event) {
-
-            if (window.innerWidth > 700) {
-
-                return;
-
-            }
-
-
-            const sidebar =
-                document.querySelector('.sidebar');
-
-
-            const toggle =
-                document.getElementById('sidebarToggle');
-
-
-            if (
-                document.body.classList.contains(
-                    'mobile-sidebar-open'
-                ) &&
-
-                !sidebar.contains(event.target) &&
-
-                !toggle.contains(event.target)
-            ) {
-
-                document.body.classList.remove(
-                    'mobile-sidebar-open'
-                );
-
-            }
-
-        });
-
-
-
-        /* =================================================
+<?= $this->section('scripts') ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* =================================================
            SEARCH + FILTER
         ================================================= */
 
         const searchInput =
             document.getElementById('searchInstansi');
 
-
         const filterGrup =
             document.getElementById('filterGrup');
-
 
         const rows =
             document.querySelectorAll('.instansi-row');
 
-
         const emptyRow =
             document.getElementById('emptyRow');
 
-
         function filterInstansi() {
-
 
             const keyword =
                 searchInput.value
                     .toLowerCase()
                     .trim();
 
-
             const grup =
                 filterGrup.value;
-
 
             let visible =
                 0;
 
-
             rows.forEach(function (row) {
-
 
                 const searchData =
                     row.dataset.search
                         .toLowerCase();
 
-
                 const rowGrup =
                     row.dataset.grup;
-
 
                 const cocokSearch =
                     keyword === '' ||
                     searchData.includes(keyword);
 
-
                 const cocokGrup =
                     grup === 'all' ||
                     rowGrup === grup;
-
 
                 if (
                     cocokSearch &&
@@ -2891,7 +1326,6 @@
 
             });
 
-
             if (visible === 0) {
 
                 emptyRow.style.display =
@@ -2906,19 +1340,15 @@
 
         }
 
-
         searchInput.addEventListener(
             'input',
             filterInstansi
         );
 
-
         filterGrup.addEventListener(
             'change',
             filterInstansi
         );
-
-
 
         /* =================================================
            TEXT TO SPEECH - INSTANSI
@@ -2927,16 +1357,12 @@
         const soundButtons =
             document.querySelectorAll('.instansi-name .sound-btn');
 
-
         soundButtons.forEach(function (button) {
-
 
             button.addEventListener('click', function () {
 
-
                 const text =
                     this.dataset.speech;
-
 
                 if (!('speechSynthesis' in window)) {
 
@@ -2948,9 +1374,7 @@
 
                 }
 
-
                 window.speechSynthesis.cancel();
-
 
                 soundButtons.forEach(function (btn) {
 
@@ -2960,33 +1384,26 @@
 
                 });
 
-
                 const speech =
                     new SpeechSynthesisUtterance(
                         text
                     );
 
-
                 speech.lang =
                     'id-ID';
-
 
                 speech.rate =
                     0.9;
 
-
                 speech.pitch =
                     1;
-
 
                 const currentButton =
                     this;
 
-
                 currentButton.classList.add(
                     'speaking'
                 );
-
 
                 speech.onend = function () {
 
@@ -2996,7 +1413,6 @@
 
                 };
 
-
                 speech.onerror = function () {
 
                     currentButton.classList.remove(
@@ -3005,11 +1421,9 @@
 
                 };
 
-
                 window.speechSynthesis.speak(
                     speech
                 );
-
 
             });
 
@@ -3054,7 +1468,6 @@
 
             return result;
         }
-
 
         // Membuat satu kotak input layanan
         function tambahInputLayanan(nama = '', id = null) {
@@ -3355,10 +1768,5 @@
 
             btnSimpan.textContent = 'Simpan';
         });
-
-    </script>
-
-
-</body>
-
-</html>
+</script>
+<?= $this->endSection() ?>

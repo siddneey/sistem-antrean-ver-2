@@ -14,6 +14,17 @@ class AdminHariLiburController extends BaseController
     }
 
     /**
+     * GET /admin/pengaturan-kelompok
+     * Menampilkan halaman frontend pengaturan kelompok.
+     */
+    public function halaman()
+    {
+        return view('admin/pengaturan_hari_libur', [
+            'activeMenu' => 'pengaturan-hari-libur',
+        ]);
+    }
+
+    /**
      * GET /admin/hari-libur
      *
      * Menampilkan seluruh hari libur.

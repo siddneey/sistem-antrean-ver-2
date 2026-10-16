@@ -497,32 +497,31 @@
         ===================================================== */
 
         .topbar {
-        height: 76px;
+         height: 90px;
+        min-height: 90px;
+        width: 100%;
+        padding: 0 30px;
+        box-sizing: border-box;
 
         background: var(--white);
-
         border-bottom: 1px solid var(--border);
 
         display: flex;
+        flex-direction: row;
         align-items: center;
-
         justify-content: space-between;
-
-        padding: 0 30px;
+        gap: 24px;
         }
 
 
         .topbar-left {
-            color: var(--navy);
-            font-size: 17px;
-            font-weight: 700;
-        }
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
 
-        .topbar-left span {
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 400;
-            margin-left: 8px;
+            min-width: 0;
+            color: var(--navy);
         }
 
 
@@ -530,6 +529,57 @@
             display: flex;
             align-items: center;
             gap: 18px;
+        }
+
+
+        /* Ikon admin */
+        .admin-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+
+            border-radius: 5px;
+            background: #fff0b8;
+            color: var(--navy);
+
+            font-size: 20px;
+        }
+
+        /* Garis pemisah */
+        .topbar-divider {
+            width: 1px;
+            height: 30px;
+            flex-shrink: 0;
+            background: #dce2eb;
+        }
+
+        .topbar-title,
+        .topbar-subtitle {
+            display: block;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .topbar-title {
+            margin: 0;
+            flex-shrink: 0;
+
+            color: var(--navy);
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .topbar-subtitle {
+            margin: 0;
+
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
         }
 
         /* =========================
@@ -640,6 +690,7 @@
     </style>
     <?= $this->renderSection('styles') ?>
 </head>
+
 <body>
     <aside class="sidebar">
 
@@ -700,13 +751,15 @@
             </a>
 
 
-            <a href="<?= site_url('admin/laporan-proses-antrean') ?>" class="menu-item <?= ($activeMenu ?? '') === 'laporan-proses-antrean' ? 'active' : '' ?>">
+            <a href="<?= site_url('admin/laporan-proses-antrean') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'laporan-proses-antrean' ? 'active' : '' ?>">
                 <i class="bi bi-hourglass-split"></i>
                 <span>Laporan Proses Antrean</span>
             </a>
 
 
-            <a href="<?= base_url('admin/laporan-ringkasan-antrean') ?>" class="menu-item <?= ($activeMenu ?? '') === 'laporan-ringkasan-antrean' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/laporan-ringkasan-antrean') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'laporan-ringkasan-antrean' ? 'active' : '' ?>">
                 <i class="bi bi-bar-chart"></i>
                 <span>Laporan Ringkasan Antrean</span>
             </a>
@@ -717,13 +770,15 @@
             </div>
 
 
-            <a href="<?= base_url('admin/instansi/halaman') ?>" class="menu-item <?= ($activeMenu ?? '') === 'instansi' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/instansi/halaman') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'instansi' ? 'active' : '' ?>">
                 <i class="bi bi-building"></i>
                 <span>Instansi</span>
             </a>
 
 
-            <a href="<?= base_url('admin/petugas/halaman') ?>" class="menu-item <?= ($activeMenu ?? '') === 'petugas' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/petugas/halaman') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'petugas' ? 'active' : '' ?>">
                 <i class="bi bi-person"></i>
                 <span>Petugas</span>
             </a>
@@ -734,38 +789,42 @@
             </div>
 
 
-            <a href="<?= base_url('admin/pengaturan-kelompok') ?>" class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-kelompok' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/pengaturan-kelompok') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-kelompok' ? 'active' : '' ?>">
                 <i class="bi bi-people"></i>
                 <span>Pengaturan Kelompok</span>
             </a>
 
 
-            <a href="<?= base_url('admin/pengaturan-layar') ?>" class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-layar' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/pengaturan-layar') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-layar' ? 'active' : '' ?>">
                 <i class="bi bi-display"></i>
                 <span>Pengaturan Layar</span>
             </a>
 
 
-            <a href="<?= base_url('admin/pengaturan-hari-libur') ?>" class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-hari-libur' ? 'active' : '' ?>">
+            <a href="<?= base_url('admin/pengaturan-hari-libur') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'pengaturan-hari-libur' ? 'active' : '' ?>">
                 <i class="bi bi-calendar-x"></i>
                 <span>Pengaturan Hari Libur</span>
             </a>
 
 
-            <a href="<?= site_url('admin/log-user-login') ?>" class="menu-item <?= ($activeMenu ?? '') === 'log-user-login' ? 'active' : '' ?>">
+            <a href="<?= site_url('admin/log-user-login') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'log-user-login' ? 'active' : '' ?>">
                 <i class="bi bi-clock-history"></i>
                 <span>Log User Login</span>
             </a>
 
 
-            <a href="<?= site_url('admin/absensi-petugas') ?>" class="menu-item <?= ($activeMenu ?? '') === 'absensi-petugas' ? 'active' : '' ?>">
+            <a href="<?= site_url('admin/absensi-petugas') ?>" 
+                class="menu-item <?= ($activeMenu ?? '') === 'absensi-petugas' ? 'active' : '' ?>">
                 <i class="bi bi-person-check"></i>
                 <span>Absensi Petugas</span>
             </a>
 
         </nav>
 
-    
     </aside>
 
     <main class="main-content">
@@ -774,8 +833,19 @@
 
         <!-- KIRI -->
         <div class="topbar-left">
-            <?= esc($topbarTitle ?? 'Admin') ?>
-            <span><?= esc($topbarSubtitle ?? 'Monitoring layanan MPP Kota Tangerang') ?></span>
+            <div class="admin-icon">
+                <i class="bi bi-person-gear"></i>
+            </div>
+
+            <div class="topbar-divider"></div>
+
+            <h1 class="topbar-title">Admin</h1>
+
+            <div class="topbar-divider"></div>
+
+            <p class="topbar-subtitle">
+                Monitoring Layanan MPP Kota Tangerang
+            </p>
         </div>
 
         <!-- KANAN -->
@@ -810,7 +880,10 @@
         </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
+
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', function () {
@@ -845,7 +918,7 @@
             }
         });
 
-        
+
         function perbaruiTanggal() {
             const sekarang = new Date();
 
@@ -868,6 +941,33 @@
         perbaruiTanggal();
         setInterval(perbaruiTanggal, 60000);
 
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const sidebarMenu = document.querySelector('.sidebar-menu');
+
+            if (!sidebarMenu) return;
+
+            const storageKey = 'adminSidebarScroll';
+
+            // Pulihkan posisi scroll saat halaman dibuka kembali
+            const savedScroll = sessionStorage.getItem(storageKey);
+
+            if (savedScroll !== null) {
+                sidebarMenu.scrollTop = Number(savedScroll);
+            }
+
+            // Simpan posisi scroll ketika sidebar digulir
+            sidebarMenu.addEventListener('scroll', function () {
+                sessionStorage.setItem(storageKey, sidebarMenu.scrollTop);
+            });
+
+            // Simpan posisi sebelum pindah ke fitur lain
+            document.querySelectorAll('.sidebar-menu a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    sessionStorage.setItem(storageKey, sidebarMenu.scrollTop);
+                });
+            });
+        });
 
     </script>
     <?= $this->renderSection('scripts') ?>

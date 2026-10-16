@@ -6,10 +6,16 @@ class PetugasController extends BaseController
 {
     public function dashboard()
     {
+        /*
         return $this->response->setJSON([
             'status'      => true,
             'message'     => 'Dashboard Petugas',
             'instansi_id' => session()->get('instansi_id'),
+        ]);
+        */
+        return view('petugas/dashboard', [
+            'username'   => session()->get('username'),
+            'instansiId' => session()->get('instansi_id'),
         ]);
     }
 }

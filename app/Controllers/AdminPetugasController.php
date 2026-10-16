@@ -5,8 +5,10 @@ namespace App\Controllers;
 use App\Models\InstansiModel;
 use App\Models\UserModel;
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\RESTful\ResourceController;
+use Throwable;
 
-class AdminPetugasController extends BaseController
+class AdminPetugasController extends ResourceController
 {
     protected UserModel $userModel;
     protected InstansiModel $instansiModel;
@@ -15,12 +17,10 @@ class AdminPetugasController extends BaseController
     {
         $this->userModel = new UserModel();
         $this->instansiModel = new InstansiModel();
+        helper(['url', 'form']);
     }
-    /**
-     * GET /admin/petugas
-     *
-     * Menampilkan halaman pengelolaan petugas.
-     */
+
+    /** Halaman HTML; dropdown instansi memakai ID database. */
     public function halaman()
     {
         $instansiList = $this->instansiModel
@@ -30,18 +30,14 @@ class AdminPetugasController extends BaseController
 
         return view('admin/petugas', [
             'instansiList' => $instansiList,
+            'activeMenu' => 'petugas',
         ]);
     }
 
-    /**
-     * GET /admin/petugas
-     *
-     * Menampilkan seluruh petugas.
-     */
-
+    /** GET /admin/petugas — daftar akun petugas dalam format JSON. */
     public function index(): ResponseInterface
     {
-        $petugas = $this->userModel
+        $petugas = $this->userModel->builder()
             ->select([
                 'users.id',
                 'users.role_id',
@@ -53,325 +49,168 @@ class AdminPetugasController extends BaseController
                 'users.updated_at',
                 'instansi.nama_instansi',
             ])
-            ->join(
-                'instansi',
-                'instansi.id = users.instansi_id',
-                'left'
-            )
+            ->join('instansi', 'instansi.id = users.instansi_id', 'left')
             ->where('users.role_id', 2)
             ->orderBy('users.username', 'ASC')
-            ->findAll();
+            ->get()
+            ->getResultArray();
 
-        return $this->response->setJSON([
+        return $this->respond([
             'status' => true,
-            'data'   => $petugas,
+            'data' => $petugas,
+            'csrfHash' => function_exists('csrf_hash') ? csrf_hash() : null,
         ]);
     }
 
-    /**
-     * POST /admin/petugas
-     *
-     * Membuat akun petugas baru.
-     *
-     * Request body:
-     * {
-     *     "username": "petugas1",
-     *     "password": "123456",
-     *     "instansi_id": 1
-     * }
-     */
+    /** POST /admin/petugas — membuat akun petugas baru. */
     public function create(): ResponseInterface
     {
-        // Ambil data dari raw JSON
-        $input = $this->request->getJSON(true);
+        $input = $this->request->getJSON(true) ?? [];
+        $username = trim((string) ($input['username'] ?? ''));
+        $password = (string) ($input['password'] ?? '');
+        $instansiId = filter_var($input['instansi_id'] ?? null, FILTER_VALIDATE_INT);
+        $status = (string) ($input['status'] ?? 'Aktif');
 
-        // Pastikan JSON valid
-        if (!is_array($input)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Format JSON tidak valid.',
-                ]);
+        if ($username === '' || strlen($username) > 100 || $password === '' || $instansiId === false || !$instansiId) {
+            return $this->failValidationErrors('Username, password, dan instansi wajib diisi dengan benar.');
         }
-
-        $username   = trim((string) ($input['username'] ?? ''));
-        $password   = (string) ($input['password'] ?? '');
-        $instansiId = $input['instansi_id'] ?? null;
-
-        // Validasi input wajib
-        if (
-            $username === '' ||
-            $password === '' ||
-            $instansiId === null ||
-            $instansiId === ''
-        ) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'username, password, dan instansi wajib diisi.',
-                ]);
+        if (strlen($password) < 8) {
+            return $this->failValidationErrors('Password minimal 8 karakter.');
         }
-
-        // Pastikan instansi ID berupa angka
-        if (!is_numeric($instansiId) || (int) $instansiId <= 0) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'instansi_id tidak valid.',
-                ]);
+        if (!in_array($status, ['Aktif', 'Nonaktif'], true)) {
+            return $this->failValidationErrors('Status harus Aktif atau Nonaktif.');
         }
-
-        $instansiId = (int) $instansiId;
-
-        // Validasi instansi harus ada
         if (!$this->instansiModel->find($instansiId)) {
-            return $this->response
-                ->setStatusCode(404)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Instansi tidak ditemukan.',
-                ]);
+            return $this->failValidationErrors('Instansi yang dipilih tidak ditemukan.');
         }
-
-        // Username tidak boleh duplikat
         if ($this->userModel->where('username', $username)->first()) {
-            return $this->response
-                ->setStatusCode(409)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'username sudah digunakan.',
-                ]);
+            return $this->failResourceExists('Username sudah digunakan.');
         }
 
-        // Buat akun petugas
-        $this->userModel->insert([
-            'role_id'     => 2,
-            'instansi_id' => $instansiId,
-            'username'    => $username,
-            'password'    => password_hash($password, PASSWORD_DEFAULT),
-        ]);
+        try {
+            $id = $this->userModel->insert([
+                'role_id' => 2,
+                'instansi_id' => $instansiId,
+                'username' => $username,
+                'password' => password_hash($password, PASSWORD_DEFAULT),
+                'status' => $status,
+            ], true);
 
-        return $this->response
-            ->setStatusCode(201)
-            ->setJSON([
-                'status'  => true,
+            if (!$id) {
+                return $this->failServerError('Data petugas gagal disimpan.');
+            }
+
+            return $this->respondCreated([
+                'status' => true,
                 'message' => 'Petugas berhasil ditambahkan.',
-                'id'      => $this->userModel->getInsertID(),
+                'id' => $id,
+                'csrfHash' => function_exists('csrf_hash') ? csrf_hash() : null,
             ]);
+        } catch (Throwable $e) {
+            log_message('error', '[AdminPetugasController::create] {message}', ['message' => $e->getMessage()]);
+            return $this->failServerError('Terjadi kesalahan saat menyimpan petugas.');
+        }
     }
 
-    /**
-     * PUT /admin/petugas/{id}
-     *
-     * Mengubah data petugas.
-     *
-     * Request body:
-     * {
-     *     "username": "petugasbaru",
-     *     "password": "12345678",
-     *     "instansi_id": 2
-     * }
-     *
-     * Semua field bersifat opsional.
-     */
-    public function update($id): ResponseInterface
+    /** PUT /admin/petugas/{id} — memperbarui akun petugas. */
+    public function update($id = null): ResponseInterface
     {
-        // Pastikan ID berupa angka
-        if (!is_numeric($id) || (int) $id <= 0) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'ID petugas tidak valid.',
-                ]);
+        if (!ctype_digit((string) $id) || (int) $id < 1) {
+            return $this->failValidationErrors('ID petugas tidak valid.');
         }
 
-        $id = (int) $id;
-
-        // Pastikan user adalah petugas
-        $petugas = $this->userModel
-            ->where('id', $id)
-            ->where('role_id', 2)
-            ->first();
-
+        $petugas = $this->userModel->where('role_id', 2)->find((int) $id);
         if (!$petugas) {
-            return $this->response
-                ->setStatusCode(404)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Petugas tidak ditemukan.',
-                ]);
+            return $this->failNotFound('Data petugas tidak ditemukan.');
         }
 
-        // Ambil data dari raw JSON
-        $input = $this->request->getJSON(true);
-
-        // Pastikan JSON valid
-        if (!is_array($input)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Format JSON tidak valid.',
-                ]);
-        }
-
+        $input = $this->request->getJSON(true) ?? [];
         $data = [];
 
-        $username   = $input['username'] ?? null;
-        $instansiId = $input['instansi_id'] ?? null;
-        $password   = $input['password'] ?? null;
-
-        // =========================
-        // Update username
-        // =========================
-        if ($username !== null) {
-            $username = trim((string) $username);
-
-            if ($username === '') {
-                return $this->response
-                    ->setStatusCode(400)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'username tidak boleh kosong.',
-                    ]);
+        if (array_key_exists('username', $input)) {
+            $username = trim((string) $input['username']);
+            if ($username === '' || strlen($username) > 100) {
+                return $this->failValidationErrors('Username wajib diisi dan maksimal 100 karakter.');
             }
-
-            // Cek username dipakai user lain
             $existing = $this->userModel
                 ->where('username', $username)
-                ->where('id !=', $id)
+                ->where('id !=', (int) $id)
                 ->first();
-
             if ($existing) {
-                return $this->response
-                    ->setStatusCode(409)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'username sudah digunakan.',
-                    ]);
+                return $this->failResourceExists('Username sudah digunakan akun lain.');
             }
-
             $data['username'] = $username;
         }
 
-        // =========================
-        // Update instansi
-        // =========================
-        if ($instansiId !== null) {
-
-            // Pastikan instansi ID valid
-            if (!is_numeric($instansiId) || (int) $instansiId <= 0) {
-                return $this->response
-                    ->setStatusCode(400)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'instansi_id tidak valid.',
-                    ]);
+        if (array_key_exists('instansi_id', $input)) {
+            $instansiId = filter_var($input['instansi_id'], FILTER_VALIDATE_INT);
+            if ($instansiId === false || !$instansiId || !$this->instansiModel->find($instansiId)) {
+                return $this->failValidationErrors('Instansi yang dipilih tidak valid.');
             }
-
-            $instansiId = (int) $instansiId;
-
-            // Pastikan instansi benar-benar ada
-            if (!$this->instansiModel->find($instansiId)) {
-                return $this->response
-                    ->setStatusCode(404)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'Instansi tidak ditemukan.',
-                    ]);
-            }
-
             $data['instansi_id'] = $instansiId;
         }
 
-        // =========================
-        // Update password
-        // =========================
-        if ($password !== null) {
-            $password = (string) $password;
+        if (array_key_exists('status', $input)) {
+            $status = (string) $input['status'];
+            if (!in_array($status, ['Aktif', 'Nonaktif'], true)) {
+                return $this->failValidationErrors('Status harus Aktif atau Nonaktif.');
+            }
+            $data['status'] = $status;
+        }
 
-            if ($password === '') {
-                return $this->response
-                    ->setStatusCode(400)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'password tidak boleh kosong.',
-                    ]);
+        if (isset($input['password']) && $input['password'] !== '') {
+            $password = (string) $input['password'];
+            if (strlen($password) < 8) {
+                return $this->failValidationErrors('Password baru minimal 8 karakter.');
+            }
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+
+        if ($data === []) {
+            return $this->failValidationErrors('Tidak ada data yang diubah.');
+        }
+
+        try {
+            if (!$this->userModel->update((int) $id, $data)) {
+                return $this->failServerError('Data petugas gagal diperbarui.');
             }
 
-            $data['password'] = password_hash(
-                $password,
-                PASSWORD_DEFAULT
-            );
-        }
-
-        // Tidak ada data yang diubah
-        if (empty($data)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Tidak ada data yang diubah.',
-                ]);
-        }
-
-        // Update database
-        $this->userModel->update($id, $data);
-
-        return $this->response
-            ->setStatusCode(200)
-            ->setJSON([
-                'status'  => true,
-                'message' => 'Petugas berhasil diperbarui.',
+            return $this->respond([
+                'status' => true,
+                'message' => 'Data petugas berhasil diperbarui.',
+                'csrfHash' => function_exists('csrf_hash') ? csrf_hash() : null,
             ]);
+        } catch (Throwable $e) {
+            log_message('error', '[AdminPetugasController::update] {message}', ['message' => $e->getMessage()]);
+            return $this->failServerError('Terjadi kesalahan saat memperbarui petugas.');
+        }
     }
 
-    /**
-     * DELETE /admin/petugas/{id}
-     *
-     * Menghapus akun petugas.
-     */
-    public function delete($id): ResponseInterface
+    /** DELETE /admin/petugas/{id} — menghapus akun petugas. */
+    public function delete($id = null): ResponseInterface
     {
-        // Pastikan ID berupa angka
-        if (!is_numeric($id) || (int) $id <= 0) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'ID petugas tidak valid.',
-                ]);
+        if (!ctype_digit((string) $id) || (int) $id < 1) {
+            return $this->failValidationErrors('ID petugas tidak valid.');
         }
 
-        $id = (int) $id;
-
-        // Pastikan user adalah petugas
-        $petugas = $this->userModel
-            ->where('id', $id)
-            ->where('role_id', 2)
-            ->first();
-
+        $petugas = $this->userModel->where('role_id', 2)->find((int) $id);
         if (!$petugas) {
-            return $this->response
-                ->setStatusCode(404)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Petugas tidak ditemukan.',
-                ]);
+            return $this->failNotFound('Data petugas tidak ditemukan.');
         }
 
-        // Hapus petugas
-        $this->userModel->delete($id);
+        try {
+            if (!$this->userModel->delete((int) $id)) {
+                return $this->failServerError('Petugas gagal dihapus.');
+            }
 
-        return $this->response
-            ->setStatusCode(200)
-            ->setJSON([
-                'status'  => true,
+            return $this->respond([
+                'status' => true,
                 'message' => 'Petugas berhasil dihapus.',
+                'csrfHash' => function_exists('csrf_hash') ? csrf_hash() : null,
             ]);
+        } catch (Throwable $e) {
+            log_message('error', '[AdminPetugasController::delete] {message}', ['message' => $e->getMessage()]);
+            return $this->fail('Petugas tidak dapat dihapus karena masih terhubung dengan data lain.', 409);
+        }
     }
 }

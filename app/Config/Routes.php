@@ -38,11 +38,26 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
+
+    // =========================
+    // LAPORAN PROSES ANTREAN
+    // =========================
+
     $routes->get(
         'laporan-proses-antrean',
         'AdminController::laporanProsesAntrean',
         ['filter' => 'role:1']
     );
+
+    $routes->get(
+        'laporan-proses-antrean/export',
+        'AdminController::exportLaporanProsesAntrean',
+        ['filter' => 'role:1']
+    );
+    
+    // =========================
+    // LAPORAN RINGKASAN ANTREAN
+    // =========================
 
     $routes->get(
         'laporan-ringkasan-antrean',
@@ -51,11 +66,41 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     );
 
     // =========================
+    // PENGATURAN LAYAR
+    // =========================
+
+    $routes->get(
+        'pengaturan-layar',
+        'AdminController::pengaturanLayar',
+        ['filter' => 'role:1']
+    );
+
+    // =========================
+    // LOG USER LOGIN
+    // =========================
+
+    $routes->get(
+        'log-user-login',
+        'AdminController::logUserLogin',
+        ['filter' => 'role:1']
+    );
+
+    // =========================
+    // ABSENSI PETUGAS
+    // =========================
+
+    $routes->get(
+        'absensi-petugas',
+        'AdminController::absensiPetugas',
+        ['filter' => 'role:1']
+    );
+
+    // =========================
     // PETUGAS
     // =========================
 
     $routes->get(
-        'petugas',
+        'petugas/halaman',
         'AdminPetugasController::halaman',
         ['filter' => 'role:1']
     );
@@ -151,6 +196,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     // =========================
 
     $routes->get(
+        'pengaturan-kelompok',
+        'AdminKelompokController::halaman',
+        ['filter' => 'role:1']
+    );
+    
+    $routes->get(
         'kelompok',
         'AdminKelompokController::index',
         ['filter' => 'role:1']
@@ -205,6 +256,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     // =========================
     // HARI LIBUR
     // =========================
+
+    $routes->get(
+        'pengaturan-hari-libur',
+        'AdminHariLiburController::halaman',
+        ['filter' => 'role:1']
+    );
 
     $routes->get(
         'hari-libur',
@@ -314,7 +371,6 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
     $routes->group('masyarakat', static function ($routes) {
         $routes->get('instansi', 
         'MasyarakatController::instansi');
-
         $routes->get('kuota/(:num)', 
         'MasyarakatController::kuota/$1');
         $routes->post('antrean', 

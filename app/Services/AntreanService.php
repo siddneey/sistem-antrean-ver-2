@@ -24,10 +24,10 @@ class AntreanService
     
     // Jam pelayanan
     protected string $jamMulaiAmbil = '08:00:00';
-    protected string $jamSelesaiAmbil = '15:00:00';
+    protected string $jamSelesaiAmbil = '21:00:00';
 
     protected string $jamMulaiPelayanan = '08:00:00';
-    protected string $jamSelesaiPelayanan = '16:00:00';
+    protected string $jamSelesaiPelayanan = '21:00:00';
     
     // Default Kuota Pelayanan
     private const KUOTA_BIASA_DEFAULT = 50;
