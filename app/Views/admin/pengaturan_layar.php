@@ -1,9 +1,7 @@
 <?= $this->extend('layouts/admin') ?>
 
 <?= $this->section('pageTitle') ?>
-
 <?= $this->endSection() ?>
-
 
 <?= $this->section('styles') ?>
 <style>
@@ -267,57 +265,33 @@
             grid-template-columns: 105px minmax(0, 1fr);
         }
     }
+    /* Tampilan status tidak aktif dan informasi sistem */
+    .status-offline { color: #dc6464; font-size: 12px; }
+    .status-offline .status-dot { background: #dc6464; }
+    .login-badge.is-login { background: #43a047; }
+    .layar-notice { margin-bottom: 16px; font-size: 13px; }
+    .layar-loading { padding: 18px !important; text-align: center; }
+    .btn-add-ip:disabled, .btn-delete-ip:disabled { opacity: .6; cursor: wait; }
 </style>
 <?= $this->endSection() ?>
 
 
 <?= $this->section('content') ?>
 
-<?php
-/*
-|--------------------------------------------------------------------------
-| Data contoh layar
-|--------------------------------------------------------------------------
-| Data ini masih statis. Nantinya bisa diganti dengan data database.
-*/
-$layar = [
-    [
-        'id' => 1,
-        'nama' => 'Kelompok 1',
-        'login' => 'Iya',
-        'login_terakhir' => '2026-10-06 08:35:53',
-    ],
-    [
-        'id' => 2,
-        'nama' => 'Kelompok 2',
-        'login' => 'Iya',
-        'login_terakhir' => '2026-10-06 08:36:47',
-    ],
-];
-
-/*
-|--------------------------------------------------------------------------
-| Daftar IP contoh
-|--------------------------------------------------------------------------
-| Perubahan tambah/hapus di halaman ini hanya terjadi di browser.
-*/
-$ipAkses = [
-    '10.10.102.69',
-    '127.0.0.1',
-    '::1',
-    '38.210.87.150',
-    '38.210.87.151',
-    '10.10.106.174',
-    '10.11.3',
-    '10.10.106.162',
-];
-?>
-
+<!-- ===================================================== -->
+<!-- JUDUL HALAMAN                                       -->
+<!-- ===================================================== -->
 <div class="layar-page-title">
     <h1>Pengaturan Layar</h1>
 </div>
 
-<!-- STATUS LAYAR -->
+<!-- Pesan berhasil atau gagal dari proses API -->
+<div id="layarNotice" class="alert layar-notice d-none" role="alert"></div>
+
+<!-- ===================================================== -->
+<!-- STATUS LAYAR DISPLAY                                -->
+<!-- Data berasal dari GET /admin/layar/status            -->
+<!-- ===================================================== -->
 <div class="layar-section-title">Status Layar Display</div>
 
 <div class="layar-content-card">
@@ -333,66 +307,24 @@ $ipAkses = [
                     <th style="width: 110px;">Aksi</th>
                 </tr>
             </thead>
-
-            <tbody>
-                <?php foreach ($layar as $index => $item): ?>
-                    <tr>
-                        <td><?= $index + 1 ?></td>
-
-                        <td><?= esc($item['nama']) ?></td>
-
-                        <td>
-                            <span class="login-badge">
-                                <?= esc($item['login']) ?>
-                            </span>
-                        </td>
-
-                        <td><?= esc($item['login_terakhir']) ?></td>
-
-                        <td>
-                            <span class="status-online">
-                                <span class="status-dot"></span>
-                                Aktif
-                            </span>
-                        </td>
-
-                        <td>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-outline-secondary"
-                                onclick="lihatLayar(<?= esc(json_encode($item['nama']), 'attr') ?>)"
-                            >
-                                <i class="bi bi-eye"></i>
-                                Detail
-                            </button>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+            <tbody id="layarBody">
+                <tr><td colspan="6" class="layar-loading">Memuat status layar...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
-<!-- DAFTAR IP AKSES -->
+<!-- ===================================================== -->
+<!-- DAFTAR IP AKSES                                     -->
+<!-- Data berasal dari GET /admin/layar/ip                -->
+<!-- ===================================================== -->
 <div class="ip-header">
     <div class="layar-section-title">Daftar IP Akses</div>
-
     <div class="ip-tools">
-        <input
-            type="text"
-            id="searchIP"
-            class="search-ip"
-            placeholder="Cari IP Address..."
-            aria-label="Cari IP Address"
-        >
-
-        <button
-            type="button"
-            class="refresh-btn"
-            onclick="refreshIP()"
-        >
-            <i class="bi bi-arrow-clockwise"></i>
-            Refresh
+        <input type="search" id="searchIP" class="search-ip"
+               placeholder="Cari IP Address..." aria-label="Cari IP Address">
+        <button type="button" id="refreshIPBtn" class="refresh-btn">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
         </button>
     </div>
 </div>
@@ -406,115 +338,56 @@ $ipAkses = [
                     <th style="width: 150px;">Aksi</th>
                 </tr>
             </thead>
-
             <tbody id="ipBody">
-                <!-- Form tambah IP -->
+                <!-- Form tambah IP: tidak mengubah data sebelum server menyetujui -->
                 <tr id="ipAddRow">
                     <td>
-                        <div class="ip-input-row">
-                            <input
-                                type="text"
-                                id="ipBaru"
-                                class="ip-input"
-                                placeholder="Masukkan IP Baru..."
-                                aria-label="IP Address baru"
-                                maxlength="45"
-                            >
-                        </div>
+                        <form id="formTambahIP" class="ip-input-row">
+                            <input type="text" id="ipBaru" name="ip_address"
+                                   class="ip-input" placeholder="Masukkan IP Baru..."
+                                   aria-label="IP Address baru" maxlength="45" required>
+                        </form>
                     </td>
-
                     <td>
-                        <button
-                            type="button"
-                            class="btn-add-ip"
-                            onclick="tambahIP()"
-                        >
-                            <i class="bi bi-plus-lg"></i>
-                            Tambah
+                        <button type="submit" form="formTambahIP" id="tambahIPBtn" class="btn-add-ip">
+                            <i class="bi bi-plus-lg"></i> Tambah
                         </button>
                     </td>
                 </tr>
-
-                <!-- Data IP -->
-                <?php foreach ($ipAkses as $ip): ?>
-                    <tr
-                        class="ip-row"
-                        data-ip="<?= esc(strtolower($ip), 'attr') ?>"
-                    >
-                        <td class="ip-value"><?= esc($ip) ?></td>
-
-                        <td>
-                            <button
-                                type="button"
-                                class="btn-delete-ip"
-                                onclick="hapusIP(this)"
-                            >
-                                Hapus
-                            </button>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+                <!-- Baris IP dari database ditambahkan melalui JavaScript -->
             </tbody>
         </table>
     </div>
-
     <div class="empty-ip" id="emptyIP">
         <i class="bi bi-search" style="font-size: 24px;"></i>
-        <div>IP Address tidak ditemukan.</div>
+        <div id="emptyIPText">Belum ada IP Address terdaftar.</div>
     </div>
 </div>
 
-<!-- MODAL DETAIL LAYAR -->
-<div
-    class="modal fade"
-    id="modalDetailLayar"
-    tabindex="-1"
-    aria-labelledby="modalDetailLayarLabel"
-    aria-hidden="true"
->
+<!-- ===================================================== -->
+<!-- MODAL DETAIL LAYAR                                  -->
+<!-- ===================================================== -->
+<div class="modal fade" id="modalDetailLayar" tabindex="-1"
+     aria-labelledby="modalDetailLayarLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDetailLayarLabel">
-                    <i class="bi bi-display"></i>
-                    Detail Layar
+                    <i class="bi bi-display"></i> Detail Layar
                 </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal"
-                    aria-label="Tutup"
-                ></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
-
             <div class="modal-body">
                 <div class="detail-layar-grid">
-                    <strong>Nama Layar</strong>
-                    <span id="detailNamaLayar">-</span>
-
-                    <strong>Status</strong>
-                    <span style="color: #43a047;">
-                        <i class="bi bi-circle-fill"></i>
-                        Aktif
-                    </span>
-
-                    <strong>Login</strong>
-                    <span>Iya</span>
-
-                    <strong>Koneksi</strong>
-                    <span>Terhubung</span>
+                    <strong>Nama Layar</strong><span id="detailNamaLayar">-</span>
+                    <strong>Login</strong><span id="detailLogin">-</span>
+                    <strong>Login Terakhir</strong><span id="detailLoginTerakhir">-</span>
+                    <strong>Status</strong><span id="detailStatus">-</span>
+                    <strong>Aktivitas Terakhir</strong><span id="detailLastSeen">-</span>
                 </div>
             </div>
-
             <div class="modal-footer">
-                <button
-                    type="button"
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal"
-                >
-                    Tutup
-                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -522,154 +395,248 @@ $ipAkses = [
 
 <?= $this->endSection() ?>
 
-
 <?= $this->section('scripts') ?>
 <script>
-    // DETAIL LAYAR
-    function lihatLayar(nama) {
-        document.getElementById('detailNamaLayar').textContent = nama;
+(() => {
+    'use strict';
 
-        const modalElement = document.getElementById('modalDetailLayar');
-        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    // =====================================================
+    // KONFIGURASI API DAN ELEMEN HALAMAN
+    // =====================================================
+    const api = {
+        status: <?= json_encode(base_url('admin/layar/status')) ?>,
+        ip: <?= json_encode(base_url('admin/layar/ip')) ?>
+    };
 
-        modal.show();
+    // CSRF CodeIgniter 4 (jika filter CSRF diaktifkan).
+    const csrfName = <?= json_encode(csrf_token()) ?>;
+    let csrfHash = <?= json_encode(csrf_hash()) ?>;
+
+    const layarBody = document.getElementById('layarBody');
+    const ipBody = document.getElementById('ipBody');
+    const searchInput = document.getElementById('searchIP');
+    const ipInput = document.getElementById('ipBaru');
+    const tambahButton = document.getElementById('tambahIPBtn');
+    const refreshButton = document.getElementById('refreshIPBtn');
+    const notice = document.getElementById('layarNotice');
+
+    let daftarIP = [];
+    let daftarLayar = [];
+
+    // =====================================================
+    // FUNGSI BANTUAN
+    // =====================================================
+    function pesan(teks, jenis = 'danger') {
+        notice.className = `alert alert-${jenis} layar-notice`;
+        notice.textContent = teks;
     }
 
-    // TAMBAH IP
-    function tambahIP() {
-        const input = document.getElementById('ipBaru');
-        const ip = input.value.trim();
+    function tanggal(nilai) {
+        if (!nilai) return '-';
+        // Format dari MySQL: YYYY-MM-DD HH:mm:ss.
+        // Ditampilkan apa adanya agar tidak keliru mengubah zona waktu.
+        return String(nilai);
+    }
 
-        if (ip === '') {
-            alert('Masukkan IP Address terlebih dahulu.');
-            input.focus();
-            return;
-        }
-
-        /*
-         * Validasi karakter dasar IPv4/IPv6.
-         * Ini bukan validasi IP lengkap; server tetap perlu memvalidasi
-         * kembali jika fitur ini nantinya dihubungkan ke database.
-         */
-        const ipPattern = /^[a-zA-Z0-9:.]+$/;
-
-        if (!ipPattern.test(ip)) {
-            alert('Format IP Address tidak valid.');
-            input.focus();
-            return;
-        }
-
-        const rows = document.querySelectorAll('#ipBody .ip-row');
-        const ipLower = ip.toLowerCase();
-
-        const sudahAda = Array.from(rows).some(function (row) {
-            return row.dataset.ip === ipLower;
+    async function requestJSON(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', ...(options.headers || {}) },
+            ...options
         });
+        const data = await response.json().catch(() => null);
+        if (data && typeof data.csrfHash === 'string') csrfHash = data.csrfHash;
+        if (data && typeof data.csrf_hash === 'string') csrfHash = data.csrf_hash;
 
-        if (sudahAda) {
-            alert('IP Address tersebut sudah terdaftar.');
-            input.focus();
-            return;
+        if (!response.ok || !data || data.status !== true) {
+            throw new Error(data?.message || `Permintaan gagal (HTTP ${response.status}).`);
         }
-
-        // Buat elemen dengan textContent agar input tidak dieksekusi sebagai HTML.
-        const row = document.createElement('tr');
-        row.className = 'ip-row';
-        row.dataset.ip = ipLower;
-
-        const ipCell = document.createElement('td');
-        ipCell.className = 'ip-value';
-        ipCell.textContent = ip;
-
-        const actionCell = document.createElement('td');
-        const deleteButton = document.createElement('button');
-
-        deleteButton.type = 'button';
-        deleteButton.className = 'btn-delete-ip';
-        deleteButton.textContent = 'Hapus';
-        deleteButton.addEventListener('click', function () {
-            hapusIP(deleteButton);
-        });
-
-        actionCell.appendChild(deleteButton);
-        row.appendChild(ipCell);
-        row.appendChild(actionCell);
-
-        document.getElementById('ipBody').appendChild(row);
-
-        input.value = '';
-        filterIP();
-
-        alert('IP Address berhasil ditambahkan.');
+        return data;
     }
 
-    // HAPUS IP
-    function hapusIP(button) {
-        const row = button.closest('.ip-row');
-
-        if (!row) {
-            return;
-        }
-
-        const ip = row.dataset.ip || '';
-
-        if (!confirm('Yakin ingin menghapus IP ' + ip + '?')) {
-            return;
-        }
-
-        row.remove();
-        filterIP();
+    function buatSel(teks) {
+        const td = document.createElement('td');
+        td.textContent = teks;
+        return td;
     }
 
-    // PENCARIAN IP
-    const searchIP = document.getElementById('searchIP');
+    // =====================================================
+    // STATUS LAYAR DISPLAY
+    // =====================================================
+    async function muatStatusLayar() {
+        try {
+            const hasil = await requestJSON(api.status);
+            daftarLayar = Array.isArray(hasil.data) ? hasil.data : [];
+            layarBody.replaceChildren();
 
-    searchIP.addEventListener('input', filterIP);
-
-    function filterIP() {
-        const keyword = searchIP.value.toLowerCase().trim();
-        const rows = document.querySelectorAll('#ipBody .ip-row');
-
-        let ditemukan = 0;
-
-        rows.forEach(function (row) {
-            const ip = row.dataset.ip || '';
-            const cocok = keyword === '' || ip.includes(keyword);
-
-            row.style.display = cocok ? '' : 'none';
-
-            if (cocok) {
-                ditemukan++;
+            if (!daftarLayar.length) {
+                const tr = document.createElement('tr');
+                const td = buatSel('Belum ada kelompok layar.');
+                td.colSpan = 6;
+                td.className = 'layar-loading';
+                tr.appendChild(td);
+                layarBody.appendChild(tr);
+                return;
             }
+
+            daftarLayar.forEach((layar, index) => {
+                const tr = document.createElement('tr');
+                tr.appendChild(buatSel(String(index + 1)));
+                tr.appendChild(buatSel(layar.nama_kelompok || '-'));
+
+                const loginTd = document.createElement('td');
+                const login = document.createElement('span');
+                login.className = `login-badge${layar.login ? ' is-login' : ''}`;
+                login.textContent = layar.login ? 'Iya' : 'Tidak';
+                loginTd.appendChild(login);
+                tr.appendChild(loginTd);
+
+                tr.appendChild(buatSel(tanggal(layar.login_terakhir)));
+
+                const statusTd = document.createElement('td');
+                const status = document.createElement('span');
+                status.className = layar.aktif ? 'status-online' : 'status-online status-offline';
+                const dot = document.createElement('span');
+                dot.className = 'status-dot';
+                status.appendChild(dot);
+                status.appendChild(document.createTextNode(layar.aktif ? 'Aktif' : 'Tidak Aktif'));
+                statusTd.appendChild(status);
+                tr.appendChild(statusTd);
+
+                const aksiTd = document.createElement('td');
+                const detail = document.createElement('button');
+                detail.type = 'button';
+                detail.className = 'btn btn-sm btn-outline-secondary';
+                detail.innerHTML = '<i class="bi bi-eye"></i> Detail';
+                detail.addEventListener('click', () => lihatLayar(layar));
+                aksiTd.appendChild(detail);
+                tr.appendChild(aksiTd);
+                layarBody.appendChild(tr);
+            });
+        } catch (error) {
+            layarBody.innerHTML = '<tr><td colspan="6" class="layar-loading">Gagal memuat status layar.</td></tr>';
+            pesan(error.message);
+        }
+    }
+
+    function lihatLayar(layar) {
+        document.getElementById('detailNamaLayar').textContent = layar.nama_kelompok || '-';
+        document.getElementById('detailLogin').textContent = layar.login ? 'Iya' : 'Tidak';
+        document.getElementById('detailLoginTerakhir').textContent = tanggal(layar.login_terakhir);
+        document.getElementById('detailStatus').textContent = layar.aktif ? 'Aktif' : 'Tidak Aktif';
+        document.getElementById('detailLastSeen').textContent = tanggal(layar.last_seen);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailLayar')).show();
+    }
+
+    // =====================================================
+    // DAFTAR IP: TAMPILKAN DAN CARI
+    // =====================================================
+    function tampilkanIP() {
+        ipBody.querySelectorAll('.ip-row').forEach(row => row.remove());
+        const keyword = searchInput.value.trim().toLowerCase();
+        const cocok = daftarIP.filter(item => String(item.ip_address || '').toLowerCase().includes(keyword));
+
+        cocok.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'ip-row';
+            tr.appendChild(buatSel(item.ip_address));
+
+            const aksiTd = document.createElement('td');
+            const hapus = document.createElement('button');
+            hapus.type = 'button';
+            hapus.className = 'btn-delete-ip';
+            hapus.textContent = 'Hapus';
+            hapus.addEventListener('click', () => hapusIP(item, hapus));
+            aksiTd.appendChild(hapus);
+            tr.appendChild(aksiTd);
+            ipBody.appendChild(tr);
         });
 
-        const empty = document.getElementById('emptyIP');
-        empty.style.display = ditemukan === 0 ? 'block' : 'none';
+        const kosong = document.getElementById('emptyIP');
+        kosong.style.display = cocok.length ? 'none' : 'block';
+        document.getElementById('emptyIPText').textContent = keyword
+            ? 'IP Address tidak ditemukan.'
+            : 'Belum ada IP Address terdaftar.';
     }
 
-    // REFRESH DAFTAR IP
-    function refreshIP() {
-        const button = document.querySelector('.refresh-btn');
-        const icon = button.querySelector('i');
+    async function muatIP() {
+        const hasil = await requestJSON(api.ip);
+        daftarIP = Array.isArray(hasil.data) ? hasil.data : [];
+        tampilkanIP();
+    }
 
-        if (button.disabled) {
+    // =====================================================
+    // TAMBAH IP (POST FORM DATA KE DATABASE)
+    // =====================================================
+    async function tambahIP(event) {
+        event.preventDefault();
+        const ip = ipInput.value.trim();
+        if (!ip) {
+            pesan('Masukkan IP Address terlebih dahulu.');
+            ipInput.focus();
             return;
         }
-
-        button.disabled = true;
-        icon.classList.add('spin');
-
-        // Simulasi refresh karena data saat ini belum berasal dari server.
-        window.setTimeout(function () {
-            icon.classList.remove('spin');
-            button.disabled = false;
-
-            filterIP();
-            alert('Daftar IP berhasil diperbarui.');
-        }, 500);
+        tambahButton.disabled = true;
+        try {
+            const form = new FormData();
+            form.append('ip_address', ip);
+            form.append(csrfName, csrfHash);
+            const hasil = await requestJSON(api.ip, { method: 'POST', body: form });
+            ipInput.value = '';
+            await muatIP();
+            pesan(hasil.message || 'IP Address berhasil ditambahkan.', 'success');
+        } catch (error) {
+            pesan(error.message);
+        } finally {
+            tambahButton.disabled = false;
+        }
     }
 
-    // Jalankan pencarian awal.
-    filterIP();
+    // =====================================================
+    // HAPUS IP (DELETE KE DATABASE)
+    // =====================================================
+    async function hapusIP(item, button) {
+        if (!confirm(`Yakin ingin menghapus IP ${item.ip_address}?`)) return;
+        button.disabled = true;
+        try {
+            const hasil = await requestJSON(`${api.ip}/${encodeURIComponent(item.id)}`, {
+                method: 'DELETE',
+                headers: { [csrfName]: csrfHash }
+            });
+            await muatIP();
+            pesan(hasil.message || 'IP Address berhasil dihapus.', 'success');
+        } catch (error) {
+            pesan(error.message);
+            button.disabled = false;
+        }
+    }
+
+    // =====================================================
+    // REFRESH STATUS LAYAR DAN DAFTAR IP
+    // =====================================================
+    async function refreshIP() {
+        refreshButton.disabled = true;
+        const icon = refreshButton.querySelector('i');
+        icon.classList.add('spin');
+        try {
+            await Promise.all([muatIP(), muatStatusLayar()]);
+            pesan('Data layar dan IP berhasil diperbarui.', 'success');
+        } catch (error) {
+            pesan(error.message);
+        } finally {
+            refreshButton.disabled = false;
+            icon.classList.remove('spin');
+        }
+    }
+
+    // =====================================================
+    // INISIALISASI HALAMAN
+    // =====================================================
+    searchInput.addEventListener('input', tampilkanIP);
+    document.getElementById('formTambahIP').addEventListener('submit', tambahIP);
+    refreshButton.addEventListener('click', refreshIP);
+    muatStatusLayar();
+    muatIP().catch(error => pesan(error.message));
+})();
 </script>
 <?= $this->endSection() ?>

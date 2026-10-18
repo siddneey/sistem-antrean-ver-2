@@ -13,6 +13,7 @@ class InstansiModel extends Model
         'grup_id',
         'nama_instansi',
         'logo',
+        'audio_nama',
     ];
 
     protected $useTimestamps = true;

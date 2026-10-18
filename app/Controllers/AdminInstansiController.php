@@ -32,6 +32,7 @@ class AdminInstansiController extends BaseController
                 'instansi.grup_id',
                 'instansi.nama_instansi',
                 'instansi.logo',
+                'instansi.audio_nama',
                 'grup.nama_grup',
             ])
             ->join('grup', 'grup.id = instansi.grup_id', 'left')
@@ -162,6 +163,7 @@ class AdminInstansiController extends BaseController
                 'instansi.grup_id',
                 'instansi.nama_instansi',
                 'instansi.logo',
+                'instansi.audio_nama',
                 'instansi.created_at',
                 'instansi.updated_at',
                 'grup.nama_grup',
@@ -512,6 +514,14 @@ class AdminInstansiController extends BaseController
 
             $db->transCommit();
 
+            // Hapus file audio milik instansi jika ada.
+            if (!empty($instansi['audio_nama'])) {
+                $audioPath = FCPATH . 'audio/instansi/' . basename($instansi['audio_nama']);
+                if (is_file($audioPath)) {
+                    @unlink($audioPath);
+                }
+            }
+
             return $this->response->setJSON([
                 'status' => true,
                 'message' => 'Instansi dan layanan terkait berhasil dihapus.',
@@ -529,4 +539,139 @@ class AdminInstansiController extends BaseController
             ]);
         }
     }
+
+
+    /**
+     * POST /admin/instansi/{id}/audio
+     * Upload atau mengganti rekaman nama instansi.
+     */
+    public function uploadAudio($id)
+    {
+        $id = (int) $id;
+        $instansi = $this->instansiModel->find($id);
+
+        if ($id < 1 || !$instansi) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => false,
+                'message' => 'Instansi tidak ditemukan.',
+            ]);
+        }
+
+        $file = $this->request->getFile('audio');
+        if (!$file || !$file->isValid()) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'File audio belum dipilih atau gagal diunggah.',
+            ]);
+        }
+
+        if ($file->hasMoved()) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'File audio sudah dipindahkan.',
+            ]);
+        }
+
+        if ($file->getSizeByUnit('mb') > 10) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Ukuran audio maksimal 10 MB.',
+            ]);
+        }
+
+        $allowed = [
+            'mp3' => ['audio/mpeg', 'audio/mp3', 'audio/mpeg3', 'audio/x-mpeg-3'],
+            'wav' => ['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave'],
+            'ogg' => ['audio/ogg', 'application/ogg'],
+        ];
+        $extension = strtolower($file->getExtension());
+        $mime = strtolower((string) $file->getMimeType());
+
+        if (!isset($allowed[$extension]) || !in_array($mime, $allowed[$extension], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Format audio harus MP3, WAV, atau OGG.',
+            ]);
+        }
+
+        $directory = FCPATH . 'audio/instansi';
+        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Folder penyimpanan audio tidak dapat dibuat.',
+            ]);
+        }
+
+        // Nama file dibuat server, bukan dari nama file kiriman pengguna.
+        $newName = 'instansi_' . $id . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+        try {
+            $file->move($directory, $newName);
+
+            if (!$this->instansiModel->update($id, ['audio_nama' => $newName])) {
+                @unlink($directory . DIRECTORY_SEPARATOR . $newName);
+                return $this->response->setStatusCode(500)->setJSON([
+                    'status' => false,
+                    'message' => 'Gagal menyimpan nama file audio ke database.',
+                ]);
+            }
+
+            // Hapus rekaman lama setelah database berhasil diperbarui.
+            if (!empty($instansi['audio_nama'])) {
+                $oldPath = $directory . DIRECTORY_SEPARATOR . basename($instansi['audio_nama']);
+                if (is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+
+            return $this->response->setJSON([
+                'status' => true,
+                'message' => 'Audio nama instansi berhasil diunggah.',
+                'audio_nama' => $newName,
+                'audio_url' => base_url('audio/instansi/' . rawurlencode($newName)),
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', 'Gagal mengunggah audio instansi: {error}', ['error' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal mengunggah audio instansi.',
+            ]);
+        }
+    }
+
+    /**
+     * GET /admin/instansi/{id}/audio/download
+     * Mengunduh rekaman nama instansi.
+     */
+    public function downloadAudio($id)
+    {
+        $id = (int) $id;
+        $instansi = $this->instansiModel->find($id);
+
+        if ($id < 1 || !$instansi) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => false,
+                'message' => 'Instansi tidak ditemukan.',
+            ]);
+        }
+
+        if (empty($instansi['audio_nama'])) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => false,
+                'message' => 'Instansi ini belum memiliki rekaman audio.',
+            ]);
+        }
+
+        $path = FCPATH . 'audio/instansi/' . basename($instansi['audio_nama']);
+        if (!is_file($path)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'status' => false,
+                'message' => 'File audio tidak ditemukan di server.',
+            ]);
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $safeName = url_title($instansi['nama_instansi'], '-', true) ?: 'instansi';
+        return $this->response->download($path, null)->setFileName($safeName . '.' . $extension);
+    }
+
 }

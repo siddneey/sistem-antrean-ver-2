@@ -69,19 +69,56 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     // PENGATURAN LAYAR
     // =========================
 
+    // Halaman Pengaturan Layar
     $routes->get(
         'pengaturan-layar',
-        'AdminController::pengaturanLayar',
+        'AdminLayarController::halaman',
         ['filter' => 'role:1']
     );
 
+    // Mengambil daftar IP akses
+    $routes->get(
+        'layar/ip',
+        'AdminLayarController::daftarIp',
+        ['filter' => 'role:1']
+    );
+
+    // Menambahkan IP akses
+    $routes->post(
+        'layar/ip',
+        'AdminLayarController::tambahIp',
+        ['filter' => 'role:1']
+    );
+
+    // Menghapus IP akses
+    $routes->delete(
+        'layar/ip/(:num)',
+        'AdminLayarController::hapusIp/$1',
+        ['filter' => 'role:1']
+    );
+
+    // Mengambil status layar Display
+    $routes->get(
+        'layar/status',
+        'AdminLayarController::statusLayar',
+        ['filter' => 'role:1']
+    );
+    
     // =========================
     // LOG USER LOGIN
     // =========================
 
+    // Halaman Log User Login
     $routes->get(
         'log-user-login',
-        'AdminController::logUserLogin',
+        'AdminLogUserLoginController::halaman',
+        ['filter' => 'role:1']
+    );
+
+    // API mengambil riwayat login
+    $routes->get(
+        'log-user-login/data',
+        'AdminLogUserLoginController::index',
         ['filter' => 'role:1']
     );
 
@@ -195,12 +232,14 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     // KELOMPOK
     // =========================
 
+    // Halaman pengaturan kelompok
     $routes->get(
         'pengaturan-kelompok',
         'AdminKelompokController::halaman',
         ['filter' => 'role:1']
     );
-    
+
+    // API kelompok
     $routes->get(
         'kelompok',
         'AdminKelompokController::index',
@@ -286,6 +325,23 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         'AdminHariLiburController::delete/$1',
         ['filter' => 'role:1']
     );
+    
+    // =========================
+    // AUDIO INSTANSI
+    // =========================
+
+    $routes->post(
+        'instansi/(:num)/audio',
+        'AdminInstansiController::uploadAudio/$1',
+        ['filter' => 'role:1']
+    );
+
+    $routes->get(
+        'instansi/(:num)/audio/download',
+        'AdminInstansiController::downloadAudio/$1',
+        ['filter' => 'role:1']
+    );
+
 });
 
 

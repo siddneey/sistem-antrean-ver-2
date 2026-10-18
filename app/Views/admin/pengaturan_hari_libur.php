@@ -429,7 +429,7 @@
         <span id="infoData">Menampilkan data hari libur</span>
         <span>
             <i class="bi bi-info-circle me-1"></i>
-            Data masih berupa dummy.
+            Data tersimpan di database MPP.
         </span>
     </div>
 </div>
@@ -492,7 +492,7 @@
                             id="keteranganLibur"
                             class="form-control"
                             rows="3"
-                            maxlength="500"
+                            maxlength="255"
                             placeholder="Keterangan tambahan (opsional)"
                         ></textarea>
                     </div>
@@ -520,181 +520,172 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    // Data dummy sementara, tidak terhubung ke database.
-    let dataHariLibur = [
-        {
-            id: 1,
-            tanggal: '2026-01-01',
-            nama: 'Tahun Baru Masehi',
-            jenis: 'Nasional',
-            keterangan: 'Libur nasional'
-        },
-        {
-            id: 2,
-            tanggal: '2026-08-17',
-            nama: 'Hari Kemerdekaan Republik Indonesia',
-            jenis: 'Nasional',
-            keterangan: 'Peringatan Hari Kemerdekaan'
-        },
-        {
-            id: 3,
-            tanggal: '2026-12-25',
-            nama: 'Hari Raya Natal',
-            jenis: 'Nasional',
-            keterangan: 'Libur nasional'
-        },
-        {
-            id: 4,
-            tanggal: '2026-12-31',
-            nama: 'Penutupan Layanan Akhir Tahun',
-            jenis: 'Khusus MPP',
-            keterangan: 'Penyesuaian operasional layanan MPP'
-        }
-    ];
-
-    let idBerikutnya = 5;
+    // ============================================================
+    // KONFIGURASI API DAN DATA
+    // ============================================================
+    const apiHariLibur = <?= json_encode(site_url('admin/hari-libur')) ?>;
+    const csrfHeader = <?= json_encode(config('Security')->headerName) ?>;
+    let csrfHash = <?= json_encode(csrf_hash()) ?>;
+    let dataHariLibur = [];
 
     const modalElement = document.getElementById('modalHariLibur');
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     const form = document.getElementById('formHariLibur');
+    const tombolSimpan = form.querySelector('button[type="submit"]');
+    const tbody = document.getElementById('hariLiburBody');
 
-    // Format tanggal ke format Indonesia.
+    // ============================================================
+    // UTILITAS TANGGAL DAN KEAMANAN HTML
+    // ============================================================
     function formatTanggal(tanggal) {
         if (!tanggal) return '-';
-
-        const bagian = tanggal.split('-');
-        return bagian[2] + '-' + bagian[1] + '-' + bagian[0];
+        const bagian = String(tanggal).slice(0, 10).split('-');
+        return bagian.length === 3 ? bagian[2] + '-' + bagian[1] + '-' + bagian[0] : '-';
     }
 
-    // Mencegah teks input dibaca sebagai HTML.
     function escapeHTML(teks) {
         return String(teks ?? '').replace(/[&<>"']/g, function (karakter) {
             return {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
+                '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#039;'
             }[karakter];
         });
     }
 
-    // Isi pilihan tahun sesuai data.
+    // ============================================================
+    // REQUEST JSON KE CODEIGNITER 4
+    // ============================================================
+    async function requestAPI(url, method = 'GET', payload = null) {
+        const headers = { 'Accept': 'application/json' };
+        const opsi = { method, headers, credentials: 'same-origin' };
+
+        if (method !== 'GET') {
+            headers['Content-Type'] = 'application/json';
+            headers[csrfHeader] = csrfHash;
+            if (payload !== null) opsi.body = JSON.stringify(payload);
+        }
+
+        let response;
+        try {
+            response = await fetch(url, opsi);
+        } catch (error) {
+            throw new Error('Tidak dapat terhubung ke server. Periksa jaringan LAN.');
+        }
+
+        const tipe = response.headers.get('content-type') || '';
+        const hasil = tipe.includes('application/json')
+            ? await response.json()
+            : null;
+
+        // Bila controller mengembalikan token CSRF terbaru, gunakan langsung.
+        if (hasil && hasil.csrfHash) csrfHash = hasil.csrfHash;
+
+        if (!response.ok || !hasil || hasil.status !== true) {
+            if (response.status === 403) {
+                throw new Error('Sesi atau token keamanan sudah berubah. Muat ulang halaman lalu coba lagi.');
+            }
+            throw new Error((hasil && hasil.message) || 'Permintaan gagal (HTTP ' + response.status + ').');
+        }
+        return hasil;
+    }
+
+    // ============================================================
+    // AMBIL DATA ASLI DARI DATABASE
+    // ============================================================
+    async function muatHariLibur() {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Memuat data hari libur...</td></tr>';
+        try {
+            const hasil = await requestAPI(apiHariLibur);
+            dataHariLibur = Array.isArray(hasil.data)
+                ? hasil.data.map(item => ({
+                    id: Number(item.id),
+                    tanggal: String(item.tanggal || '').slice(0, 10),
+                    nama: String(item.nama ?? ''),
+                    jenis: String(item.jenis ?? ''),
+                    keterangan: String(item.keterangan ?? '')
+                }))
+                : [];
+            perbaruiPilihanTahun();
+            tampilkanHariLibur();
+        } catch (error) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">' +
+                escapeHTML(error.message) + '</td></tr>';
+            document.getElementById('infoData').textContent = 'Gagal memuat data';
+        }
+    }
+
+    // ============================================================
+    // FILTER TAHUN, PENCARIAN, DAN JENIS
+    // ============================================================
     function perbaruiPilihanTahun() {
         const select = document.getElementById('filterTahun');
         const tahunDipilih = select.value;
-
-        const tahunData = [...new Set(
-            dataHariLibur.map(item => item.tanggal.substring(0, 4))
-        )].sort();
+        const tahunData = [...new Set(dataHariLibur
+            .map(item => item.tanggal.substring(0, 4))
+            .filter(Boolean))].sort();
 
         select.innerHTML = '<option value="">Semua Tahun</option>';
-
         tahunData.forEach(function (tahun) {
             const option = document.createElement('option');
             option.value = tahun;
             option.textContent = 'Tahun ' + tahun;
             select.appendChild(option);
         });
-
-        if (tahunData.includes(tahunDipilih)) {
-            select.value = tahunDipilih;
-        }
+        if (tahunData.includes(tahunDipilih)) select.value = tahunDipilih;
     }
 
-    // Render tabel dan statistik.
+    // ============================================================
+    // RENDER TABEL DAN STATISTIK
+    // ============================================================
     function tampilkanHariLibur() {
-        const pencarian = document.getElementById('searchLibur')
-            .value.toLowerCase().trim();
+        const pencarian = document.getElementById('searchLibur').value.toLowerCase().trim();
         const tahun = document.getElementById('filterTahun').value;
         const jenis = document.getElementById('filterJenis').value;
 
-        const hasil = dataHariLibur
-            .filter(function (item) {
-                const cocokCari =
-                    item.nama.toLowerCase().includes(pencarian) ||
-                    item.keterangan.toLowerCase().includes(pencarian) ||
-                    item.tanggal.includes(pencarian);
+        const hasil = dataHariLibur.filter(function (item) {
+            const cocokCari = item.nama.toLowerCase().includes(pencarian) ||
+                item.keterangan.toLowerCase().includes(pencarian) ||
+                item.tanggal.includes(pencarian);
+            return cocokCari && (!tahun || item.tanggal.startsWith(tahun)) &&
+                (!jenis || item.jenis === jenis);
+        }).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
-                const cocokTahun = !tahun || item.tanggal.startsWith(tahun);
-                const cocokJenis = !jenis || item.jenis === jenis;
-
-                return cocokCari && cocokTahun && cocokJenis;
-            })
-            .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
-
-        // Statistik menghitung semua data, bukan hanya hasil filter.
-        document.getElementById('statTotal').textContent =
-            dataHariLibur.length;
-
+        document.getElementById('statTotal').textContent = dataHariLibur.length;
         document.getElementById('statNasional').textContent =
             dataHariLibur.filter(item => item.jenis === 'Nasional').length;
-
         document.getElementById('statKhusus').textContent =
             dataHariLibur.filter(item => item.jenis === 'Khusus MPP').length;
 
-        const tbody = document.getElementById('hariLiburBody');
-
         if (hasil.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="empty-state">
-                        <i class="bi bi-calendar2-x"></i>
-                        Tidak ada data hari libur yang sesuai.
-                    </td>
-                </tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-state">
+                <i class="bi bi-calendar2-x"></i>Tidak ada data hari libur yang sesuai.
+                </td></tr>`;
         } else {
             tbody.innerHTML = hasil.map(function (item, index) {
-                const badge = item.jenis === 'Nasional'
-                    ? 'badge-national'
-                    : 'badge-special';
-
-                return `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>
-                            <i class="bi bi-calendar3 me-1"></i>
-                            ${formatTanggal(item.tanggal)}
-                        </td>
-                        <td class="holiday-name">${escapeHTML(item.nama)}</td>
-                        <td>
-                            <span class="holiday-badge ${badge}">
-                                ${escapeHTML(item.jenis)}
-                            </span>
-                        </td>
-                        <td>${escapeHTML(item.keterangan || '-')}</td>
-                        <td>
-                            <div class="action-wrapper">
-                                <button
-                                    type="button"
-                                    class="btn-action btn-edit"
-                                    title="Edit"
-                                    aria-label="Edit hari libur"
-                                    onclick="editHariLibur(${item.id})"
-                                >
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn-action btn-delete"
-                                    title="Hapus"
-                                    aria-label="Hapus hari libur"
-                                    onclick="hapusHariLibur(${item.id})"
-                                >
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>`;
+                const badge = item.jenis === 'Nasional' ? 'badge-national' : 'badge-special';
+                return `<tr>
+                    <td>${index + 1}</td>
+                    <td><i class="bi bi-calendar3 me-1"></i>${escapeHTML(formatTanggal(item.tanggal))}</td>
+                    <td class="holiday-name">${escapeHTML(item.nama || '-')}</td>
+                    <td><span class="holiday-badge ${badge}">${escapeHTML(item.jenis || '-')}</span></td>
+                    <td>${escapeHTML(item.keterangan || '-')}</td>
+                    <td><div class="action-wrapper">
+                        <button type="button" class="btn-action btn-edit" title="Edit"
+                            aria-label="Edit hari libur" data-action="edit" data-id="${item.id}">
+                            <i class="bi bi-pencil-square"></i></button>
+                        <button type="button" class="btn-action btn-delete" title="Hapus"
+                            aria-label="Hapus hari libur" data-action="hapus" data-id="${item.id}">
+                            <i class="bi bi-trash"></i></button>
+                    </div></td></tr>`;
             }).join('');
         }
-
         document.getElementById('infoData').textContent =
-            'Menampilkan ' + hasil.length + ' dari ' +
-            dataHariLibur.length + ' data hari libur';
+            'Menampilkan ' + hasil.length + ' dari ' + dataHariLibur.length + ' data hari libur';
     }
 
-    // Buka modal tambah.
+    // ============================================================
+    // MODAL TAMBAH DAN EDIT
+    // ============================================================
     function bukaTambah() {
         form.reset();
         document.getElementById('liburId').value = '';
@@ -702,114 +693,104 @@
         modal.show();
     }
 
-    // Buka modal edit.
     function editHariLibur(id) {
-        const item = dataHariLibur.find(data => data.id === id);
-
+        const item = dataHariLibur.find(data => data.id === Number(id));
         if (!item) return;
-
+        form.reset();
         document.getElementById('liburId').value = item.id;
         document.getElementById('tanggalLibur').value = item.tanggal;
         document.getElementById('namaLibur').value = item.nama;
         document.getElementById('jenisLibur').value = item.jenis;
         document.getElementById('keteranganLibur').value = item.keterangan;
-
         document.getElementById('judulModal').textContent = 'Edit Hari Libur';
         modal.show();
     }
 
-    // Simpan data dummy baru atau hasil edit.
-    form.addEventListener('submit', function (event) {
+    // ============================================================
+    // SIMPAN DATA KE DATABASE (POST / PUT)
+    // ============================================================
+    form.addEventListener('submit', async function (event) {
         event.preventDefault();
+        if (!form.reportValidity()) return;
 
         const id = document.getElementById('liburId').value;
-        const tanggal = document.getElementById('tanggalLibur').value;
-        const nama = document.getElementById('namaLibur').value.trim();
-        const jenis = document.getElementById('jenisLibur').value;
-        const keterangan = document.getElementById('keteranganLibur')
-            .value.trim();
-
-        if (!tanggal || !nama || !jenis) {
+        const data = {
+            tanggal: document.getElementById('tanggalLibur').value,
+            nama: document.getElementById('namaLibur').value.trim(),
+            jenis: document.getElementById('jenisLibur').value,
+            keterangan: document.getElementById('keteranganLibur').value.trim()
+        };
+        if (!data.tanggal || !data.nama || !data.jenis) {
             alert('Tanggal, nama, dan jenis hari libur wajib diisi.');
             return;
         }
-
-        // Cegah tanggal yang sama tercatat dua kali.
-        const duplikat = dataHariLibur.some(function (item) {
-            return item.tanggal === tanggal && String(item.id) !== id;
-        });
-
+        if (data.keterangan.length > 255) {
+            alert('Keterangan maksimal 255 karakter.');
+            return;
+        }
+        const duplikat = dataHariLibur.some(item =>
+            item.tanggal === data.tanggal && String(item.id) !== id);
         if (duplikat) {
             alert('Tanggal tersebut sudah terdaftar sebagai hari libur.');
             return;
         }
 
-        const itemBaru = {
-            id: id ? Number(id) : idBerikutnya++,
-            tanggal,
-            nama,
-            jenis,
-            keterangan
-        };
-
-        if (id) {
-            const index = dataHariLibur.findIndex(
-                item => item.id === Number(id)
+        tombolSimpan.disabled = true;
+        try {
+            const hasil = await requestAPI(
+                id ? apiHariLibur + '/' + encodeURIComponent(id) : apiHariLibur,
+                id ? 'PUT' : 'POST', data
             );
-
-            if (index !== -1) {
-                dataHariLibur[index] = itemBaru;
-            }
-        } else {
-            dataHariLibur.push(itemBaru);
+            modal.hide();
+            alert(hasil.message || 'Data hari libur berhasil disimpan.');
+            // Reload mengambil data dan token CSRF terbaru, aman saat regenerate=true.
+            window.location.reload();
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            tombolSimpan.disabled = false;
         }
-
-        perbaruiPilihanTahun();
-        tampilkanHariLibur();
-        modal.hide();
-
-        alert(
-            id
-                ? 'Data dummy hari libur berhasil diperbarui.'
-                : 'Data dummy hari libur berhasil ditambahkan.'
-        );
     });
 
-    // Hapus data dummy.
-    function hapusHariLibur(id) {
-        const item = dataHariLibur.find(data => data.id === id);
-
+    // ============================================================
+    // HAPUS DATA DI DATABASE (DELETE)
+    // ============================================================
+    async function hapusHariLibur(id) {
+        const item = dataHariLibur.find(data => data.id === Number(id));
         if (!item) return;
-
         if (!confirm('Hapus hari libur "' + item.nama + '"?')) return;
 
-        dataHariLibur = dataHariLibur.filter(data => data.id !== id);
-
-        perbaruiPilihanTahun();
-        tampilkanHariLibur();
+        try {
+            const hasil = await requestAPI(apiHariLibur + '/' + encodeURIComponent(id), 'DELETE');
+            alert(hasil.message || 'Hari libur berhasil dihapus.');
+            window.location.reload();
+        } catch (error) {
+            alert(error.message);
+        }
     }
 
-    // Filter pencarian.
-    document.getElementById('searchLibur')
-        .addEventListener('input', tampilkanHariLibur);
+    // Delegasi klik untuk tombol aksi dalam tabel.
+    tbody.addEventListener('click', function (event) {
+        const tombol = event.target.closest('button[data-action]');
+        if (!tombol) return;
+        const id = Number(tombol.dataset.id);
+        if (tombol.dataset.action === 'edit') editHariLibur(id);
+        if (tombol.dataset.action === 'hapus') hapusHariLibur(id);
+    });
 
-    document.getElementById('filterTahun')
-        .addEventListener('change', tampilkanHariLibur);
-
-    document.getElementById('filterJenis')
-        .addEventListener('change', tampilkanHariLibur);
-
-    // Reset semua filter.
+    // ============================================================
+    // EVENT FILTER DAN INISIALISASI
+    // ============================================================
+    document.getElementById('searchLibur').addEventListener('input', tampilkanHariLibur);
+    document.getElementById('filterTahun').addEventListener('change', tampilkanHariLibur);
+    document.getElementById('filterJenis').addEventListener('change', tampilkanHariLibur);
     document.getElementById('resetFilter').addEventListener('click', function () {
         document.getElementById('searchLibur').value = '';
         document.getElementById('filterTahun').value = '';
         document.getElementById('filterJenis').value = '';
-
         tampilkanHariLibur();
     });
 
-    // Inisialisasi.
-    perbaruiPilihanTahun();
-    tampilkanHariLibur();
+    muatHariLibur();
 </script>
 <?= $this->endSection() ?>

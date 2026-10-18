@@ -11,6 +11,8 @@ class HariLiburModel extends Model
 
     protected $allowedFields = [
         'tanggal',
+         'nama',
+         'jenis',
         'keterangan',
     ];
 

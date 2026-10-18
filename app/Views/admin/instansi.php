@@ -977,18 +977,42 @@ padding: 20px;
 
                                         <div class="instansi-name">
 
-                                            <!-- SUARA NAMA INSTANSI -->
-
-                                            <button
-                                                type="button"
-                                                class="sound-btn"
-                                                data-speech="<?= esc($item['nama_instansi']) ?>"
-                                                title="Dengarkan nama instansi"
-                                            >
-
-                                                <i class="bi bi-volume-up-fill"></i>
-
-                                            </button>
+                                            <!-- AUDIO REKAMAN NAMA INSTANSI -->
+                                            <?php if (!empty($item['audio_nama'])): ?>
+                                                <button
+                                                    type="button"
+                                                    class="sound-btn js-play-audio"
+                                                    data-audio="<?= esc(base_url('audio/instansi/' . rawurlencode($item['audio_nama'])), 'attr') ?>"
+                                                    title="Putar rekaman nama instansi"
+                                                >
+                                                    <i class="bi bi-play-fill"></i>
+                                                </button>
+                                                <a
+                                                    class="sound-btn"
+                                                    href="<?= esc(site_url('admin/instansi/' . $item['id'] . '/audio/download'), 'attr') ?>"
+                                                    title="Unduh rekaman nama instansi"
+                                                    aria-label="Unduh rekaman nama instansi"
+                                                >
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    class="sound-btn js-upload-audio"
+                                                    data-id="<?= esc($item['id'], 'attr') ?>"
+                                                    title="Ganti rekaman nama instansi"
+                                                >
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <button
+                                                    type="button"
+                                                    class="sound-btn js-upload-audio"
+                                                    data-id="<?= esc($item['id'], 'attr') ?>"
+                                                    title="Unggah rekaman nama instansi"
+                                                >
+                                                    <i class="bi bi-upload"></i>
+                                                </button>
+                                            <?php endif; ?>
 
                                             <div class="instansi-info">
 
@@ -1351,82 +1375,108 @@ padding: 20px;
         );
 
         /* =================================================
-           TEXT TO SPEECH - INSTANSI
+           AUDIO REKAMAN NAMA INSTANSI (TANPA BROWSER TTS)
         ================================================= */
+        const audioInstansi = new Audio();
+        let tombolAudioAktif = null;
 
-        const soundButtons =
-            document.querySelectorAll('.instansi-name .sound-btn');
+        document.querySelectorAll('.js-play-audio').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const source = button.dataset.audio;
+                if (!source) return;
 
-        soundButtons.forEach(function (button) {
+                try {
+                    if (tombolAudioAktif === button && !audioInstansi.paused) {
+                        audioInstansi.pause();
+                        audioInstansi.currentTime = 0;
+                        button.classList.remove('speaking');
+                        tombolAudioAktif = null;
+                        return;
+                    }
 
-            button.addEventListener('click', function () {
+                    audioInstansi.pause();
+                    audioInstansi.currentTime = 0;
+                    document.querySelectorAll('.js-play-audio').forEach((btn) => {
+                        btn.classList.remove('speaking');
+                    });
 
-                const text =
-                    this.dataset.speech;
-
-                if (!('speechSynthesis' in window)) {
-
-                    alert(
-                        'Browser kamu belum mendukung fitur suara.'
-                    );
-
-                    return;
-
+                    audioInstansi.src = source;
+                    tombolAudioAktif = button;
+                    button.classList.add('speaking');
+                    await audioInstansi.play();
+                } catch (error) {
+                    console.error('Gagal memutar audio instansi:', error);
+                    alert('Rekaman tidak dapat diputar. Periksa file audio dan izinnya.');
+                    button.classList.remove('speaking');
+                    tombolAudioAktif = null;
                 }
-
-                window.speechSynthesis.cancel();
-
-                soundButtons.forEach(function (btn) {
-
-                    btn.classList.remove(
-                        'speaking'
-                    );
-
-                });
-
-                const speech =
-                    new SpeechSynthesisUtterance(
-                        text
-                    );
-
-                speech.lang =
-                    'id-ID';
-
-                speech.rate =
-                    0.9;
-
-                speech.pitch =
-                    1;
-
-                const currentButton =
-                    this;
-
-                currentButton.classList.add(
-                    'speaking'
-                );
-
-                speech.onend = function () {
-
-                    currentButton.classList.remove(
-                        'speaking'
-                    );
-
-                };
-
-                speech.onerror = function () {
-
-                    currentButton.classList.remove(
-                        'speaking'
-                    );
-
-                };
-
-                window.speechSynthesis.speak(
-                    speech
-                );
-
             });
+        });
 
+        audioInstansi.addEventListener('ended', () => {
+            if (tombolAudioAktif) tombolAudioAktif.classList.remove('speaking');
+            tombolAudioAktif = null;
+        });
+
+        audioInstansi.addEventListener('pause', () => {
+            if (tombolAudioAktif && audioInstansi.currentTime === 0) {
+                tombolAudioAktif.classList.remove('speaking');
+            }
+        });
+
+        // Satu input file dipakai bergantian untuk tiap instansi.
+        const inputAudioInstansi = document.createElement('input');
+        inputAudioInstansi.type = 'file';
+        inputAudioInstansi.accept = 'audio/mpeg,audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg';
+        inputAudioInstansi.hidden = true;
+        document.body.appendChild(inputAudioInstansi);
+        let idInstansiAudio = null;
+
+        document.querySelectorAll('.js-upload-audio').forEach((button) => {
+            button.addEventListener('click', () => {
+                idInstansiAudio = button.dataset.id;
+                inputAudioInstansi.value = '';
+                inputAudioInstansi.click();
+            });
+        });
+
+        inputAudioInstansi.addEventListener('change', async () => {
+            const file = inputAudioInstansi.files && inputAudioInstansi.files[0];
+            if (!file || !idInstansiAudio) return;
+
+            const allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg'];
+            const extensionAllowed = /\.(mp3|wav|ogg)$/i.test(file.name);
+            if (!allowed.includes(file.type) && !extensionAllowed) {
+                alert('Format audio harus MP3, WAV, atau OGG.');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Ukuran file maksimal 10 MB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio', file);
+
+            try {
+                const response = await fetch(`${urlInstansi}/${idInstansiAudio}/audio`, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' },
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok || result.status === false) {
+                    throw new Error(result.message || 'Upload audio gagal.');
+                }
+                alert(result.message || 'Rekaman berhasil diunggah.');
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'Gagal mengunggah rekaman.');
+            } finally {
+                idInstansiAudio = null;
+                inputAudioInstansi.value = '';
+            }
         });
 
         /* =================================================
