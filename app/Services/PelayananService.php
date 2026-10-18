@@ -496,6 +496,95 @@ class PelayananService
         }
     }
 
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANGGIL KEMBALI ANTREAN PENDING
+    |--------------------------------------------------------------------------
+    */
+
+    public function panggilPending(
+        int $petugasId,
+        int $riwayatLayananId
+    ): array {
+        $this->db->transBegin();
+
+        try {
+            // Ambil dan kunci riwayat layanan.
+            $riwayat = $this->getRiwayatDenganLock(
+                $riwayatLayananId
+            );
+
+            if (!$riwayat) {
+                throw new RuntimeException(
+                    'Riwayat layanan tidak ditemukan.'
+                );
+            }
+
+            // Pastikan petugas terdaftar pada instansi antrean.
+            $this->validasiPetugasInstansi(
+                $petugasId,
+                (int) $riwayat['instansi_id']
+            );
+
+            // Hanya antrean PENDING yang dapat dipanggil kembali.
+            if ($riwayat['status_layanan'] !== 'PENDING') {
+                throw new RuntimeException(
+                    'Antrean tidak berstatus pending.'
+                );
+            }
+
+            $waktu = date('Y-m-d H:i:s');
+
+            // Kembalikan antrean ke status sedang dilayani.
+            $this->db
+                ->table('riwayat_layanan')
+                ->where('id', $riwayatLayananId)
+                ->update([
+                    'status_layanan' => 'DILAYANI',
+                    'petugas_id'     => $petugasId,
+                    'waktu_mulai'    => $waktu,
+                    'waktu_selesai'  => null,
+                    'updated_at'     => $waktu,
+                ]);
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException(
+                    'Gagal memanggil kembali antrean.'
+                );
+            }
+
+            // Catat panggilan kembali pada riwayat panggilan.
+            $this->db
+                ->table('riwayat_panggilan')
+                ->insert([
+                    'riwayat_layanan_id' => $riwayatLayananId,
+                    'petugas_id'         => $petugasId,
+                    'aksi'               => 'PANGGIL',
+                    'waktu'              => $waktu,
+                    'keterangan'         => 'Pemanggilan kembali dari PENDING',
+                    'created_at'         => $waktu,
+                    'updated_at'         => $waktu,
+                ]);
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException(
+                    'Gagal menyimpan riwayat panggilan.'
+                );
+            }
+
+            $this->db->transCommit();
+
+            return $this->getRiwayatLayanan(
+                $riwayatLayananId
+            );
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            throw $e;
+        }
+    }
+
     
     /*
     |--------------------------------------------------------------------------
@@ -708,6 +797,68 @@ class PelayananService
     }
 
     
+    /*
+    |--------------------------------------------------------------------------
+    | GET ANTREAN PETUGAS
+    |--------------------------------------------------------------------------
+    */
+
+    public function getAntreanPetugas(int $petugasId): array
+    {
+        // Pastikan akun benar-benar petugas dan ambil instansinya.
+        $petugas = $this->db
+            ->table('users u')
+            ->select('u.id, u.instansi_id, u.role_id, r.nama_role')
+            ->join('roles r', 'r.id = u.role_id')
+            ->where('u.id', $petugasId)
+            ->get()
+            ->getRowArray();
+
+        if (!$petugas) {
+            throw new RuntimeException('Petugas tidak ditemukan.');
+        }
+
+        if ($petugas['nama_role'] !== 'Petugas') {
+            throw new RuntimeException('User tersebut bukan petugas.');
+        }
+
+        if (empty($petugas['instansi_id'])) {
+            throw new RuntimeException(
+                'Petugas tidak terdaftar pada instansi tersebut.'
+            );
+        }
+
+        $instansiId = (int) $petugas['instansi_id'];
+
+        // Ambil riwayat layanan pada instansi petugas beserta info nomor antrean.
+        return $this->db
+            ->table('riwayat_layanan rl')
+            ->select([
+                'rl.id AS riwayat_layanan_id',
+                'rl.antrean_id',
+                'rl.instansi_id',
+                'rl.layanan_id',
+                'rl.petugas_id',
+                'rl.status_layanan',
+                'rl.waktu_masuk',
+                'rl.waktu_mulai',
+                'rl.waktu_selesai',
+                'rl.keterangan',
+                'rl.created_at',
+                'rl.updated_at',
+                'a.nomor_antrean',
+                'a.tanggal_antrean',
+                'a.jenis_antrean',
+            ])
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.instansi_id', $instansiId)
+            ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->orderBy('rl.waktu_masuk', 'ASC')
+            ->orderBy('rl.id', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | GET ANTREAN YANG SEDANG DILAYANI

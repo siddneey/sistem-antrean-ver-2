@@ -359,7 +359,7 @@
                     id="tanggalMulai"
                     name="tanggal_mulai"
                     class="form-control"
-                    value="<?= esc($_GET['tanggal_mulai'] ?? date('Y-m-d')) ?>"
+                    value="<?= esc($tanggalMulai ?? ($_GET['tanggal_mulai'] ?? date('Y-m-d'))) ?>"
                 >
             </div>
 
@@ -370,7 +370,7 @@
                     id="tanggalSelesai"
                     name="tanggal_selesai"
                     class="form-control"
-                    value="<?= esc($_GET['tanggal_selesai'] ?? date('Y-m-d')) ?>"
+                    value="<?= esc($tanggalSelesai ?? ($_GET['tanggal_selesai'] ?? date('Y-m-d'))) ?>"
                 >
             </div>
 
@@ -380,8 +380,8 @@
                     <option value="">Semua Instansi</option>
                     <?php foreach (($daftarInstansi ?? []) as $item): ?>
                         <option
-                            value="<?= esc($item['nama_instansi']) ?>"
-                            <?= (($_GET['instansi'] ?? '') === $item['nama_instansi']) ? 'selected' : '' ?>
+                            value="<?= esc($item['id']) ?>"
+                            <?= (string) ($filterInstansi ?? ($_GET['instansi'] ?? '')) === (string) $item['id'] ? 'selected' : '' ?>
                         >
                             <?= esc($item['nama_instansi']) ?>
                         </option>
@@ -412,10 +412,17 @@
             </div>
         </div>
 
-        <button type="button" class="btn-export" id="exportExcel">
+        <a
+            href="<?= site_url('admin/laporan-ringkasan-antrean/export') . '?' . http_build_query([
+                'tanggal_mulai' => $tanggalMulai ?? date('Y-m-d'),
+                'tanggal_selesai' => $tanggalSelesai ?? date('Y-m-d'),
+                'instansi' => $filterInstansi ?? '',
+            ]) ?>"
+            class="btn-export"
+        >
             <i class="bi bi-file-earmark-excel"></i>
             Ekspor Excel
-        </button>
+        </a>
     </div>
 
     <div class="table-wrap">
@@ -429,54 +436,73 @@
             </thead>
 
             <tbody>
-                <!-- Data contoh sementara -->
-                <tr class="instansi-row">
-                    <td>BAPENDA</td>
-                    <td>4</td>
-                    <td>
-                        <a href="#" class="btn-detail">
-                            Lihat Detail
-                        </a>
-                    </td>
-                </tr>
+                <?php
+                    $ringkasanPerInstansi = [];
 
-                <tr>
-                    <td class="service-name">
-                        – Pendaftaran SPPT PBB-P2 Objek Pajak Baru
-                    </td>
-                    <td>1</td>
-                    <td></td>
-                </tr>
+                    foreach (($ringkasan ?? []) as $row) {
+                        $key = (string) ($row['instansi_id'] ?? '');
 
-                <tr>
-                    <td class="service-name">
-                        – Permohonan Penundaan Jatuh Tempo Pembayaran PBB-P2
-                    </td>
-                    <td>1</td>
-                    <td></td>
-                </tr>
+                        if (!isset($ringkasanPerInstansi[$key])) {
+                            $ringkasanPerInstansi[$key] = [
+                                'instansi_id' => $row['instansi_id'] ?? '',
+                                'nama_instansi' => $row['nama_instansi'] ?? 'Instansi',
+                                'total' => 0,
+                                'layanan' => [],
+                            ];
+                        }
 
-                <tr>
-                    <td class="service-name">
-                        – Permohonan SPPT-PBB-P2 Mutasi Sebagian/Seluruhnya Objek dan Subjek
-                    </td>
-                    <td>1</td>
-                    <td></td>
-                </tr>
+                        $jumlah = (int) ($row['jumlah_antrean'] ?? 0);
+                        $ringkasanPerInstansi[$key]['total'] += $jumlah;
+                        $ringkasanPerInstansi[$key]['layanan'][] = [
+                            'nama_layanan' => $row['nama_layanan'] ?? 'Layanan tidak diketahui',
+                            'jumlah_antrean' => $jumlah,
+                        ];
+                    }
+                ?>
 
-                <tr>
-                    <td class="service-name">
-                        – Permohonan Surat Keterangan NJOP
-                    </td>
-                    <td>1</td>
-                    <td></td>
-                </tr>
+                <?php if (empty($ringkasanPerInstansi)): ?>
+                    <tr>
+                        <td colspan="3" class="empty-row">
+                            Tidak ada data antrean selesai untuk filter yang dipilih.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($ringkasanPerInstansi as $instansi): ?>
+                        <tr class="instansi-row">
+                            <td><?= esc($instansi['nama_instansi']) ?></td>
+                            <td><?= number_format($instansi['total'], 0, ',', '.') ?></td>
+                            <td>
+                                <button
+                                    type="button"
+                                    class="btn-detail"
+                                    onclick="toggleDetail('detail-instansi-<?= esc($instansi['instansi_id']) ?>', this)"
+                                    aria-expanded="false"
+                                >
+                                    Lihat Detail
+                                </button>
+                            </td>
+                        </tr>
+
+                        <?php foreach ($instansi['layanan'] as $index => $layanan): ?>
+                            <tr
+                                class="service-detail-row detail-instansi-<?= esc($instansi['instansi_id']) ?>"
+                                hidden
+                            >
+                                <td class="service-name">
+                                    – <?= esc($layanan['nama_layanan'] ?: 'Layanan tidak diketahui') ?>
+                                </td>
+                                <td><?= number_format($layanan['jumlah_antrean'], 0, ',', '.') ?></td>
+                                <td></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
 
             <tfoot>
                 <tr class="total-row">
                     <td>TOTAL</td>
-                    <td>4</td>
+                    <td><?= number_format((int) ($totalAntrean ?? 0), 0, ',', '.') ?></td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -489,6 +515,16 @@
 
 <?= $this->section('scripts') ?>
 <script>
+function toggleDetail(className, button) {
+    document.querySelectorAll('.' + className).forEach(function (row) {
+        row.hidden = !row.hidden;
+    });
+
+    const expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    button.textContent = expanded ? 'Lihat Detail' : 'Tutup Detail';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('filterForm');
     const mulai = document.getElementById('tanggalMulai');
@@ -503,13 +539,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    document.getElementById('exportRingkasan')?.addEventListener('click', function () {
-        alert('Fitur ekspor ringkasan belum dihubungkan ke backend.');
-    });
-
-    document.getElementById('exportHarian')?.addEventListener('click', function () {
-        alert('Fitur ekspor harian belum dihubungkan ke backend.');
-    });
 });
 </script>
 <?= $this->endSection() ?>
