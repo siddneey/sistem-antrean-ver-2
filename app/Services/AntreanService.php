@@ -32,6 +32,8 @@ class AntreanService
     // Default Kuota Pelayanan
     private const KUOTA_BIASA_DEFAULT = 50;
     private const KUOTA_PRIORITAS_DEFAULT = 30;
+    private const KUOTA_LAYANAN_DEFAULT = 50;
+    private const KUOTA_BOOKING_DEFAULT = 30;
 
     // Constructor
     public function __construct()
@@ -266,34 +268,46 @@ class AntreanService
     |--------------------------------------------------------------------------
     */
 
-    public function getKuotaInstansi(
+        public function getKuotaInstansi(
         int $instansiId,
         ?string $tanggal = null
     ): array {
         $tanggal ??= date('Y-m-d');
 
-        // Cari data kuota berdasarkan instansi dan tanggal
         $data = $this->kuotaInstansiModel
             ->where('instansi_id', $instansiId)
             ->where('tanggal', $tanggal)
             ->first();
 
-        // Gunakan kuota default jika data kuota belum tersedia
-        if (!$data) {
-            return [
-                'instansi_id'     => $instansiId,
-                'tanggal'         => $tanggal,
-                'kuota_biasa'     => self::KUOTA_BIASA_DEFAULT,
-                'kuota_prioritas' => self::KUOTA_PRIORITAS_DEFAULT,
-            ];
-        }
-
-        // Kembalikan data kuota dengan nilai numerik
         return [
-            'instansi_id'     => $instansiId,
-            'tanggal'         => $tanggal,
-            'kuota_biasa'     => (int) $data['kuota_biasa'],
-            'kuota_prioritas' => (int) $data['kuota_prioritas'],
+            'instansi_id' => $instansiId,
+            'tanggal' => $tanggal,
+
+            // Dipertahankan untuk kompatibilitas kode lama
+            'kuota_biasa' => (int) (
+                $data['kuota_biasa']
+                ?? self::KUOTA_BIASA_DEFAULT
+            ),
+
+            'kuota_prioritas' => (int) (
+                $data['kuota_prioritas']
+                ?? self::KUOTA_PRIORITAS_DEFAULT
+            ),
+
+            // Pengaturan baru dari petugas
+            'kuota_layanan' => (int) (
+                $data['kuota_layanan']
+                ?? self::KUOTA_LAYANAN_DEFAULT
+            ),
+
+            'kuota_booking' => (int) (
+                $data['kuota_booking']
+                ?? self::KUOTA_BOOKING_DEFAULT
+            ),
+
+            'status_loket' => strtoupper(
+                $data['status_loket'] ?? 'BUKA'
+            ),
         ];
     }
 

@@ -361,6 +361,32 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:2']
     );
 
+    $routes->get(
+    'dashboard/data',
+    'PetugasController::dataDashboard',
+    ['filter' => 'role:2']
+    );
+
+
+     // =========================
+    // PENGATURAN LOKET
+    // =========================
+
+    // Ambil pengaturan kuota dan status loket
+    $routes->get(
+        'pengaturan-loket',
+        'PetugasController::pengaturanLoket',
+        ['filter' => 'role:2']
+    );
+
+    // Simpan perubahan kuota dan status loket
+    $routes->post(
+        'pengaturan-loket',
+        'PetugasController::simpanPengaturanLoket',
+        ['filter' => 'role:2']
+    );
+
+
     // =========================
     // ANTREAN
     // =========================
@@ -423,15 +449,59 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
     );
 });
 
-    //Masyarakat
+    // Akhir grup PETUGAS
+);
+
+// =========================================================
+// HALAMAN KIOSK MASYARAKAT
+// =========================================================
+
+$routes->get(
+    'kiosk',
+    'MasyarakatController::kiosk'
+);
+
+// =========================================================
+// MASYARAKAT - API
+// =========================================================
+
     $routes->group('masyarakat', static function ($routes) {
-        $routes->get('instansi', 
-        'MasyarakatController::instansi');
-        $routes->get('kuota/(:num)', 
-        'MasyarakatController::kuota/$1');
-        $routes->post('antrean', 
-        'MasyarakatController::ambilAntrean');
-});
+
+        $routes->get(
+            'instansi',
+            'MasyarakatController::instansi'
+        );
+
+        $routes->get(
+            'kuota/(:num)',
+            'MasyarakatController::kuota/$1'
+        );
+
+        $routes->get(
+            'hari-libur',
+            'MasyarakatController::hariLibur'
+        );
+
+        $routes->post(
+            'antrean',
+            'MasyarakatController::ambilAntrean'
+        );
+
+    });
+
+    // Display
+    $routes->get(
+        'display/kelompok/(:num)',
+        'DisplayController::kelompok/$1'
+    );
+
+    // Subdisplay
+    $routes->get(
+        'subdisplay/grup/(:num)',
+        'SubdisplayController::grup/$1'
+    );
+
+   
 
     //Display
     $routes->get(

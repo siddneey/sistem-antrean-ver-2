@@ -280,6 +280,47 @@ class MasyarakatController extends BaseController
         }
     }
 
+        /**
+     * GET /masyarakat/hari-libur
+     *
+     * Mengambil hari libur dari database yang dikelola admin
+     * untuk kalender booking H+7.
+     */
+    public function hariLibur()
+    {
+        $hariIni = date('Y-m-d');
+        $tanggalAkhir = date('Y-m-d', strtotime('+7 days'));
+
+        try {
+            $hariLibur = db_connect()
+                ->table('hari_libur')
+                ->select('tanggal, nama, jenis, keterangan')
+                ->where('tanggal >=', $hariIni)
+                ->where('tanggal <=', $tanggalAkhir)
+                ->orderBy('tanggal', 'ASC')
+                ->get()
+                ->getResultArray();
+
+            return $this->response->setJSON([
+                'status' => true,
+                'data'   => $hariLibur,
+            ]);
+
+        } catch (Throwable $e) {
+            log_message(
+                'error',
+                'MasyarakatController::hariLibur | ' . $e->getMessage()
+            );
+
+            return $this->response
+                ->setStatusCode(500)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Gagal mengambil data hari libur.',
+                ]);
+        }
+    }
+
     /**
      * Validasi tanggal dengan format YYYY-MM-DD.
      */

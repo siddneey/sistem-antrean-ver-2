@@ -3667,120 +3667,127 @@
 
 
 
+   
     /* =====================================================
-       GENERATE TANGGAL 7 HARI
-       
-       SENIN - JUMAT AKTIF
-       SABTU - MINGGU DISABLED
-    ====================================================== */
+    GENERATE TANGGAL BOOKING H+7
 
-    function generateTanggal() {
+    - Booking mulai besok (H+1)
+    - Maksimal H+7 hari kalender
+    - Sabtu dan Minggu disabled
+    - Hari libur dari admin disabled
+    ===================================================== */
 
-        const dateGrid =
-            document.getElementById(
-                'dateGrid'
+    async function generateTanggal() {
+
+        const dateGrid = document.getElementById('dateGrid');
+        const errorTanggal = document.getElementById('errorTanggal');
+
+        dateGrid.innerHTML = 'Memuat kalender...';
+
+        tanggalBooking = null;
+        errorTanggal.style.display = 'none';
+
+        let daftarHariLibur = [];
+
+        try {
+
+            const response = await fetch(
+                '<?= site_url('masyarakat/hari-libur') ?>',
+                {
+                    cache: 'no-store'
+                }
             );
 
+            const hasil = await response.json();
+
+            if (!response.ok || !hasil.status) {
+                throw new Error(
+                    hasil.message || 'Gagal mengambil hari libur.'
+                );
+            }
+
+            daftarHariLibur = hasil.data || [];
+
+        } catch (error) {
+
+            console.error('Gagal memuat hari libur:', error);
+
+            dateGrid.textContent =
+                'Kalender gagal dimuat. Silakan coba lagi.';
+
+            return;
+        }
+
+        const tanggalLibur = new Set(
+            daftarHariLibur.map(item => item.tanggal)
+        );
+
+        const today = new Date();
+
+        today.setHours(0, 0, 0, 0);
+
+        const dayNames = [
+            'Minggu',
+            'Senin',
+            'Selasa',
+            'Rabu',
+            'Kamis',
+            'Jumat',
+            'Sabtu'
+        ];
+
+        const monthNames = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'Mei',
+            'Jun',
+            'Jul',
+            'Agu',
+            'Sep',
+            'Okt',
+            'Nov',
+            'Des'
+        ];
 
         dateGrid.innerHTML = '';
 
+        // H+1 sampai H+7
+        for (let i = 1; i <= 7; i++) {
 
-        const today =
-            new Date();
+            const date = new Date(today);
 
+            date.setDate(today.getDate() + i);
 
-        for (
-            let i = 0;
-            i < 7;
-            i++
-        ) {
+            const day = date.getDay();
 
+            // Format tanggal lokal YYYY-MM-DD
+            const tanggalString = [
+                date.getFullYear(),
+                String(date.getMonth() + 1).padStart(2, '0'),
+                String(date.getDate()).padStart(2, '0')
+            ].join('-');
 
-            const date =
-                new Date(today);
+            const akhirPekan = day === 0 || day === 6;
 
+            const hariLiburAdmin = tanggalLibur.has(tanggalString);
 
-            date.setDate(
-                today.getDate() + i
-            );
+            const disabled = akhirPekan || hariLiburAdmin;
 
+            const button = document.createElement('button');
 
-            const day =
-                date.getDay();
-
-
-            /*
-             * 0 = Minggu
-             * 1 = Senin
-             * 2 = Selasa
-             * 3 = Rabu
-             * 4 = Kamis
-             * 5 = Jumat
-             * 6 = Sabtu
-             */
-
-
-            const disabled =
-                day === 0 ||
-                day === 6;
-
-
-            const dayNames = [
-
-                'Minggu',
-                'Senin',
-                'Selasa',
-                'Rabu',
-                'Kamis',
-                'Jumat',
-                'Sabtu'
-
-            ];
-
-
-            const monthNames = [
-
-                'Jan',
-                'Feb',
-                'Mar',
-                'Apr',
-                'Mei',
-                'Jun',
-                'Jul',
-                'Agu',
-                'Sep',
-                'Okt',
-                'Nov',
-                'Des'
-
-            ];
-
-
-            const button =
-                document.createElement(
-                    'button'
-                );
-
-
-            button.type =
-                'button';
-
-
-            button.className =
-                'date-option';
-
+            button.type = 'button';
+            button.className = 'date-option';
 
             if (disabled) {
 
-                button.classList.add(
-                    'disabled'
-                );
+                button.classList.add('disabled');
+                button.disabled = true;
 
             }
 
-
             button.innerHTML = `
-
                 <span class="date-day">
                     ${dayNames[day]}
                 </span>
@@ -3792,78 +3799,71 @@
                 <span class="date-month">
                     ${monthNames[date.getMonth()]}
                 </span>
-
             `;
 
+            if (hariLiburAdmin) {
 
-            if (!disabled) {
+                const dataLibur = daftarHariLibur.find(
+                    item => item.tanggal === tanggalString
+                );
 
-                button.onclick =
-                    function () {
+                button.title = dataLibur?.nama
+                    || 'Hari libur';
 
-                        pilihTanggal(
-                            date,
-                            button
-                        );
+            } else if (akhirPekan) {
 
-                    };
+                button.title = 'Akhir pekan';
 
             }
 
+            if (!disabled) {
 
-            dateGrid.appendChild(
-                button
-            );
+                button.onclick = function () {
 
+                    pilihTanggal(date, button);
+
+                };
+
+            }
+
+            dateGrid.appendChild(button);
         }
-
     }
 
 
-
     /* =====================================================
-       PILIH TANGGAL
-    ====================================================== */
+    PILIH TANGGAL
+    ===================================================== */
 
-    function pilihTanggal(
-        date,
-        element
-    ) {
+    function pilihTanggal(date, element) {
 
-        tanggalBooking =
-            new Date(date);
+        if (element.disabled) {
+            return;
+        }
 
+        tanggalBooking = new Date(date);
 
         document
             .querySelectorAll('.date-option')
             .forEach(function (item) {
 
-                item.classList.remove(
-                    'active'
-                );
+                item.classList.remove('active');
 
             });
 
-
-        element.classList.add(
-            'active'
-        );
-
+        element.classList.add('active');
 
         document
             .getElementById('errorTanggal')
             .style.display = 'none';
-
     }
 
 
-
     /* =====================================================
-       KONFIRMASI TANGGAL
-    ====================================================== */
+    KONFIRMASI TANGGAL
+    ===================================================== */
 
     function konfirmasiTanggal() {
-
 
         if (!tanggalBooking) {
 
@@ -3872,37 +3872,26 @@
                 .style.display = 'block';
 
             return;
-
         }
 
+        const modalElement = document.getElementById(
+            'modalTanggal'
+        );
 
-        const modalElement =
-            document.getElementById(
-                'modalTanggal'
-            );
-
-
-        const modal =
-            bootstrap.Modal.getInstance(
-                modalElement
-            );
-
+        const modal = bootstrap.Modal.getInstance(
+            modalElement
+        );
 
         if (modal) {
-
             modal.hide();
-
         }
-
 
         setTimeout(function () {
 
             bukaModalJenisAntrean();
 
         }, 300);
-
     }
-
 
 
     /* =====================================================
