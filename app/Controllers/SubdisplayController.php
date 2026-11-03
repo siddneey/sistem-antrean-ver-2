@@ -23,18 +23,11 @@ class SubdisplayController extends BaseController
     {
         $db = db_connect();
 
-        $grup = $db->table('grup g')
-            ->select('
-                g.id,
-                g.nama_grup,
-                g.kelompok_id,
-                k.nama_kelompok
-            ')
-            ->join('kelompok k', 'k.id = g.kelompok_id', 'left')
-            ->orderBy('g.kelompok_id', 'ASC')
-            ->orderBy('g.nama_grup', 'ASC')
-            ->get()
-            ->getResultArray();
+        $grup = $db->table('grup')
+        ->select('id, nama_grup')
+        ->orderBy('id', 'ASC')
+        ->get()
+        ->getResultArray();
 
         $instansi = $db->table('instansi')
             ->select('id, grup_id, nama_instansi')
