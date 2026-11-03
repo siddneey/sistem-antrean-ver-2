@@ -6,43 +6,48 @@ use CodeIgniter\Database\Migration;
 
 class CreateRiwayatPanggilanTable extends Migration
 {
-    protected $DBGroup = 'transaksi';
-
     public function up()
     {
         $this->forge->addField([
             'id' => [
-                'type' => 'BIGINT',
-                'constraint' => 20,
-                'unsigned' => true,
+                'type'           => 'BIGINT',
+                'constraint'     => 20,
+                'unsigned'       => true,
                 'auto_increment' => true,
             ],
+
             'riwayat_layanan_id' => [
-                'type' => 'BIGINT',
+                'type'       => 'BIGINT',
                 'constraint' => 20,
-                'unsigned' => true,
+                'unsigned'   => true,
             ],
+
             'petugas_id' => [
-                'type' => 'INT',
+                'type'       => 'INT',
                 'constraint' => 10,
-                'unsigned' => true,
+                'unsigned'   => true,
             ],
+
             'aksi' => [
-                'type' => 'ENUM',
+                'type'       => 'ENUM',
                 'constraint' => ['PANGGIL', 'SKIP'],
             ],
+
             'waktu' => [
                 'type' => 'DATETIME',
             ],
+
             'keterangan' => [
-                'type' => 'VARCHAR',
+                'type'       => 'VARCHAR',
                 'constraint' => 255,
-                'null' => true,
+                'null'       => true,
             ],
+
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
+
             'updated_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -57,6 +62,14 @@ class CreateRiwayatPanggilanTable extends Migration
             'id',
             'CASCADE',
             'CASCADE'
+        );
+
+        $this->forge->addForeignKey(
+            'petugas_id',
+            'users',
+            'id',
+            'RESTRICT',
+            'RESTRICT'
         );
 
         $this->forge->addKey('petugas_id');

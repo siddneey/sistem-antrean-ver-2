@@ -6,69 +6,78 @@ use CodeIgniter\Database\Migration;
 
 class CreateRiwayatLayananTable extends Migration
 {
-    protected $DBGroup = 'transaksi';
-
     public function up()
     {
         $this->forge->addField([
             'id' => [
-                'type' => 'BIGINT',
-                'constraint' => 20,
-                'unsigned' => true,
+                'type'           => 'BIGINT',
+                'constraint'     => 20,
+                'unsigned'       => true,
                 'auto_increment' => true,
             ],
+
             'antrean_id' => [
-                'type' => 'BIGINT',
+                'type'       => 'BIGINT',
                 'constraint' => 20,
-                'unsigned' => true,
+                'unsigned'   => true,
             ],
+
             'instansi_id' => [
-                'type' => 'INT',
+                'type'       => 'INT',
                 'constraint' => 10,
-                'unsigned' => true,
+                'unsigned'   => true,
             ],
+
             'layanan_id' => [
-                'type' => 'INT',
+                'type'       => 'INT',
                 'constraint' => 10,
-                'unsigned' => true,
-                'null' => true,
+                'unsigned'   => true,
+                'null'       => true,
             ],
+
             'petugas_id' => [
-                'type' => 'INT',
+                'type'       => 'INT',
                 'constraint' => 10,
-                'unsigned' => true,
-                'null' => true,
+                'unsigned'   => true,
+                'null'       => true,
             ],
+
             'status_layanan' => [
-                'type' => 'ENUM',
+                'type'       => 'ENUM',
                 'constraint' => [
                     'MENUNGGU',
                     'DIPANGGIL',
-                    'DILEWATI',
                     'DILAYANI',
+                    'PENDING',
                     'SELESAI',
                 ],
                 'default' => 'MENUNGGU',
             ],
+
             'waktu_masuk' => [
                 'type' => 'DATETIME',
             ],
+
             'waktu_mulai' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
+
             'waktu_selesai' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
+
             'keterangan' => [
                 'type' => 'TEXT',
                 'null' => true,
             ],
+
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
             ],
+
             'updated_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -83,6 +92,30 @@ class CreateRiwayatLayananTable extends Migration
             'id',
             'CASCADE',
             'CASCADE'
+        );
+
+        $this->forge->addForeignKey(
+            'instansi_id',
+            'instansi',
+            'id',
+            'RESTRICT',
+            'RESTRICT'
+        );
+
+        $this->forge->addForeignKey(
+            'layanan_id',
+            'layanan',
+            'id',
+            'SET NULL',
+            'RESTRICT'
+        );
+
+        $this->forge->addForeignKey(
+            'petugas_id',
+            'users',
+            'id',
+            'SET NULL',
+            'RESTRICT'
         );
 
         $this->forge->addKey('instansi_id');

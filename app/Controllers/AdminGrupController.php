@@ -357,4 +357,68 @@ class AdminGrupController extends BaseController
                 'message' => 'Grup berhasil dihapus.',
             ]);
     }
+
+    /**
+ * GET /admin/kelompok
+ *
+ * Menampilkan halaman pengaturan grup, instansi, dan suara.
+ */
+public function halamanKelompok()
+{
+    // Ambil grup beserta konfigurasi kelompok suaranya.
+    $grupRows = $this->grupModel
+        ->select([
+            'grup.id',
+            'grup.nama_grup',
+            'grup.kelompok_id',
+            'kelompok.nama_kelompok',
+            'kelompok.suara',
+        ])
+        ->join(
+            'kelompok',
+            'kelompok.id = grup.kelompok_id'
+        )
+        ->orderBy('grup.id', 'ASC')
+        ->findAll();
+
+    // Ambil seluruh instansi dari database.
+    $instansiRows = $this->instansiModel
+        ->select('id, grup_id, nama_instansi')
+        ->orderBy('nama_instansi', 'ASC')
+        ->findAll();
+
+    // Kelompokkan instansi berdasarkan grup_id.
+    $instansiPerGrup = [];
+
+    foreach ($instansiRows as $instansi) {
+        $grupId = (int) $instansi['grup_id'];
+
+        $instansiPerGrup[$grupId][] = $instansi['nama_instansi'];
+    }
+
+    // Sesuaikan struktur data dengan view yang sudah ada.
+    $kelompok = [];
+
+    foreach ($grupRows as $grup) {
+        $grupId = (int) $grup['id'];
+
+        $kelompok[] = [
+            'id'          => $grupId,
+            'nama'        => $grup['nama_grup'],
+            'kelompok_id' => (int) $grup['kelompok_id'],
+            'instansi'    => $instansiPerGrup[$grupId] ?? [],
+            'suara'       => 'Kelompok ' . (int) $grup['suara'],
+        ];
+    }
+
+    return view('admin/pengaturan_kelompok', [
+        'kelompok'       => $kelompok,
+        'daftarInstansi' => array_column(
+            $instansiRows,
+            'nama_instansi'
+        ),
+        'totalKelompok'  => count($kelompok),
+        'totalInstansi'  => count($instansiRows),
+    ]);
+}
 }

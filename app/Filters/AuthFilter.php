@@ -8,13 +8,18 @@ use CodeIgniter\HTTP\ResponseInterface;
 
 class AuthFilter implements FilterInterface
 {
-    public function before(
-        RequestInterface $request,
-        $arguments = null
-    ) {
+    public function before(RequestInterface $request, $arguments = null)
+    {
         $session = session();
 
-        if (!$session->get('is_logged_in')) {
+        if ($session->get('is_logged_in')) {
+            return;
+        }
+
+        $accept = $request->getHeaderLine('Accept');
+
+        // Request API: tetap balas JSON
+        if (str_contains($accept, 'application/json')) {
             return service('response')
                 ->setStatusCode(401)
                 ->setJSON([
@@ -22,6 +27,9 @@ class AuthFilter implements FilterInterface
                     'message' => 'Anda belum login.',
                 ]);
         }
+
+        // Request halaman web: arahkan ke halaman login
+        return redirect()->to(site_url('/'));
     }
 
     public function after(
@@ -29,6 +37,6 @@ class AuthFilter implements FilterInterface
         ResponseInterface $response,
         $arguments = null
     ) {
-        // Tidak perlu melakukan apa pun.
+        // Tidak ada tindakan setelah request.
     }
 }

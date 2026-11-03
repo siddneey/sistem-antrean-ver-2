@@ -326,10 +326,10 @@ class AdminLayananController extends BaseController
             /*
              * riwayat_layanan berada di database mpp_layanan,
              * sedangkan layanan berada di mpp_pusat.
-             */
-            $dbLayanan = Database::connect('layanan');
+            */
+            $db = Database::connect();
 
-            $jumlahRiwayat = $dbLayanan
+            $jumlahRiwayat = $db
                 ->table('riwayat_layanan')
                 ->where('layanan_id', $id)
                 ->countAllResults();

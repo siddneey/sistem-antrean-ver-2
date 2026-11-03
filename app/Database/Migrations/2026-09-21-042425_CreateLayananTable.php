@@ -40,6 +40,11 @@ class CreateLayananTable extends Migration
 
         $this->forge->addKey('id', true);
 
+        $this->forge->addUniqueKey(
+            ['instansi_id', 'nama_layanan'],
+            'uq_layanan_instansi_nama'
+        );
+        
         $this->forge->addForeignKey(
             'instansi_id',
             'instansi',

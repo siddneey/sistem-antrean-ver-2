@@ -6,8 +6,6 @@ use CodeIgniter\Model;
 
 class LayananModel extends Model
 {
-    protected $DBGroup = 'pusat';
-
     protected $table = 'layanan';
     protected $primaryKey = 'id';
 

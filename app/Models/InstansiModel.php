@@ -6,8 +6,6 @@ use CodeIgniter\Model;
 
 class InstansiModel extends Model
 {
-    protected $DBGroup = 'pusat';
-
     protected $table = 'instansi';
     protected $primaryKey = 'id';
 
@@ -15,6 +13,7 @@ class InstansiModel extends Model
         'grup_id',
         'nama_instansi',
         'logo',
+        'audio_nama',
     ];
 
     protected $useTimestamps = true;

@@ -6,8 +6,6 @@ use CodeIgniter\Database\Migration;
 
 class UpdateStatusLayananPending extends Migration
 {
-    protected $DBGroup = 'transaksi';
-
     public function up()
     {
         /*

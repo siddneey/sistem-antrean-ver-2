@@ -14,7 +14,6 @@ class UsersSeeder extends Seeder
             [
                 'role_id'     => 1,
                 'instansi_id' => null,
-                'nama'        => 'Administrator',
                 'username'    => 'admin',
                 'password'    => $password,
                 'created_at'  => date('Y-m-d H:i:s'),
@@ -23,7 +22,6 @@ class UsersSeeder extends Seeder
             [
                 'role_id'     => 2,
                 'instansi_id' => 5,
-                'nama'        => 'Petugas BAPENDA',
                 'username'    => 'petugas_bapenda',
                 'password'    => $password,
                 'created_at'  => date('Y-m-d H:i:s'),
@@ -32,7 +30,6 @@ class UsersSeeder extends Seeder
             [
                 'role_id'     => 2,
                 'instansi_id' => 6,
-                'nama'        => 'Petugas BPKD',
                 'username'    => 'petugas_bpkd',
                 'password'    => $password,
                 'created_at'  => date('Y-m-d H:i:s'),

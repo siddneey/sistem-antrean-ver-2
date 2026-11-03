@@ -6,8 +6,6 @@ use CodeIgniter\Database\Migration;
 
 class CreateSequenceAntreanTable extends Migration
 {
-    protected $DBGroup = 'transaksi';
-
     public function up()
     {
         $this->forge->addField([
