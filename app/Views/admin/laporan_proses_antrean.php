@@ -131,7 +131,7 @@
     }
 
     .btn-export:hover {
-        background: #4fa957;
+        background:rgb(52, 116, 57);
         color: #fff;
     }
 
@@ -502,10 +502,17 @@ $totalLaporan = count($laporan ?? []);
                     </option>
 
                     <option
-                        value="proses"
-                        <?= ($filterStatus ?? '') === 'proses' ? 'selected' : '' ?>
+                        value="dilayani"
+                        <?= ($filterStatus ?? '') === 'dilayani' ? 'selected' : '' ?>
                     >
-                        Diproses
+                        Dilayani
+                    </option>
+                    
+                    <option
+                        value="pending"
+                        <?= ($filterStatus ?? '') === 'pending' ? 'selected' : '' ?>
+                    >
+                        Pending
                     </option>
 
                     <option

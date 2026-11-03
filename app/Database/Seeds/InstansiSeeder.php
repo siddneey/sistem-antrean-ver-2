@@ -147,7 +147,7 @@ class InstansiSeeder extends Seeder
             ],
             [
                 'grup_id'       => 8,
-                'nama_instansi' => 'Baznas',
+                'nama_instansi' => 'BAZNAS',
             ],
         ];
 

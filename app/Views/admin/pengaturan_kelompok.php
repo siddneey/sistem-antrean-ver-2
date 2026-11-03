@@ -1,78 +1,1090 @@
 <?= $this->extend('layouts/admin') ?>
 
 <?= $this->section('pageTitle') ?>
-<div class="pk-heading"><div><h1>Pengaturan Kelompok</h1><p>Kelola grup, kelompok induk, dan instansi terdaftar.</p></div><button class="pk-primary" id="pkTambah" type="button"><i class="bi bi-plus-lg"></i> Tambah Grup</button></div>
+<div class="pk-heading">
+    <div>
+        <h1>Pengaturan Kelompok</h1>
+        <p>Kelola grup, kelompok, dan instansi terdaftar.</p>
+    </div>
+</div>
 <?= $this->endSection() ?>
+
 
 <?= $this->section('styles') ?>
 <style>
-.pk-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}.pk-heading h1{font-size:23px;font-weight:700;color:var(--navy);margin:0}.pk-heading p{color:var(--muted);font-size:12.5px;margin:5px 0 0}.pk-primary{border:0;background:var(--navy);color:white;border-radius:7px;padding:11px 16px;font-size:12px;font-weight:700}.pk-primary:hover{background:var(--navy-light)}.pk-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px}.pk-stat,.pk-filter,.pk-table-card{background:white;border:1px solid var(--border);border-radius:9px}.pk-stat{padding:17px;display:flex;gap:12px;align-items:center}.pk-stat i{background:var(--yellow-soft);padding:11px;border-radius:8px;color:var(--navy);font-size:20px}.pk-stat small{display:block;color:var(--muted);font-size:11px}.pk-stat strong{font-size:21px;color:var(--navy)}.pk-filter{padding:17px 18px;margin-bottom:18px}.pk-filter>strong{font-size:13px;color:var(--navy);display:block;margin-bottom:13px}.pk-filter-grid{display:grid;grid-template-columns:minmax(180px,1fr) 200px auto;gap:12px}.pk-filter input,.pk-filter select{width:100%;border:1px solid var(--border);border-radius:7px;padding:10px;font-size:12px}.pk-reset{background:white;border:1px solid var(--border);border-radius:7px;padding:9px 15px;font-size:12px;color:var(--navy)}.pk-table-card{overflow:hidden}.pk-table-head{padding:17px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}.pk-table-head h2{font-size:14px;font-weight:700;color:var(--navy);margin:0}.pk-table-head p{font-size:11.5px;color:var(--muted);margin:5px 0 0}.pk-count{background:var(--yellow-soft);border-radius:6px;padding:6px 10px;color:var(--navy);font-size:12px;font-weight:700}.pk-scroll{overflow-x:auto}.pk-table{width:100%;min-width:760px;border-collapse:collapse;font-size:12.5px}.pk-table th{background:#fafafa;color:#64748b;font-size:11.5px;text-align:left;padding:16px;border-bottom:1px solid var(--border)}.pk-table td{padding:15px;border-bottom:1px solid #edf0f3;color:#64748b;vertical-align:top}.pk-table tr:last-child td{border-bottom:0}.pk-name{display:flex;gap:10px}.pk-name>i{background:#f1f4f8;color:var(--navy);border-radius:8px;padding:10px;height:36px}.pk-name b{display:block;color:var(--navy);font-size:12.5px}.pk-name small{display:block;color:var(--muted);margin-top:5px}.pk-instansi{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}.pk-instansi i{color:#198754}.pk-badge{background:var(--yellow-soft);color:#806600;border:1px solid #eadfbd;border-radius:6px;padding:7px 9px;display:inline-flex;gap:6px;align-items:center;font-size:11px;font-weight:700}.pk-actions{display:flex;gap:6px}.pk-action{height:32px;width:32px;border:1px solid var(--navy);background:white;color:var(--navy);border-radius:7px}.pk-action:hover{background:var(--navy);color:white}.pk-action.setting{color:#806600;border-color:#c5a329}.pk-action.setting:hover{background:var(--yellow);color:var(--navy)}.pk-action.delete{color:#c62828;border-color:#c62828}.pk-action.delete:hover{background:#c62828;color:white}.pk-modal .modal-header{background:var(--navy);color:white}.pk-modal .modal-header .btn-close{filter:brightness(0) invert(1)}.pk-modal .form-label{font-size:12px;font-weight:600}.pk-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:320px;overflow:auto;padding:12px;border:1px solid var(--border);border-radius:8px}.pk-checks label{border:1px solid #edf0f3;border-radius:6px;padding:9px;display:flex;gap:8px;font-size:12px;cursor:pointer}.pk-message{display:none;margin-bottom:16px}.pk-empty{text-align:center;padding:35px!important;color:var(--muted)}@media(max-width:900px){.pk-filter-grid{grid-template-columns:1fr 1fr}.pk-filter-grid button{justify-self:start}}@media(max-width:600px){.pk-heading{align-items:stretch;flex-direction:column}.pk-stats{grid-template-columns:1fr}.pk-filter-grid,.pk-checks{grid-template-columns:1fr}.pk-filter-grid button{width:100%}}
+    /* HEADING */
+    .pk-heading {
+        margin-bottom: 22px;
+    }
+
+    .pk-heading h1 {
+        font-size: 23px;
+        font-weight: 700;
+        color: var(--navy);
+        margin: 0;
+    }
+
+    .pk-heading p {
+        color: var(--muted);
+        font-size: 12.5px;
+        margin: 5px 0 0;
+    }
+
+    /* BUTTON */
+    .pk-primary {
+        border: 0;
+        background: var(--navy);
+        color: white;
+        border-radius: 7px;
+        padding: 11px 16px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .pk-primary:hover {
+        background: var(--navy-light);
+    }
+
+    /* STATISTIK */
+    .pk-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+        width: 100%;
+    }
+
+    .pk-stat,
+    .pk-filter,
+    .pk-table-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+    }
+
+    .pk-stat {
+        padding: 17px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .pk-stat i {
+        background: var(--yellow-soft);
+        padding: 11px;
+        border-radius: 8px;
+        color: var(--navy);
+        font-size: 20px;
+    }
+
+    .pk-stat small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+    }
+
+    .pk-stat strong {
+        font-size: 21px;
+        color: var(--navy);
+    }
+
+    /* FILTER */
+    .pk-filter {
+        padding: 17px 18px;
+        margin-bottom: 18px;
+    }
+
+    .pk-filter > strong {
+        font-size: 13px;
+        color: var(--navy);
+        display: block;
+        margin-bottom: 13px;
+    }
+
+    .pk-filter-grid {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 200px auto;
+        gap: 12px;
+    }
+
+    .pk-filter input,
+    .pk-filter select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .pk-search-btn {
+        background: var(--navy);
+        color: white;
+        border: 0;
+        border-radius: 7px;
+        padding: 9px 24px;
+        min-width: 140px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .pk-search-btn:hover {
+        background: var(--navy-light);
+    }
+
+    /* TABEL */
+    .pk-table-card {
+        overflow: hidden;
+    }
+
+    .pk-table-head {
+        padding: 13px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .pk-table-head h2 {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--navy);
+        margin: 0;
+    }
+
+    .pk-table-head p {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin: 5px 0 0;
+    }
+
+    .pk-scroll {
+        overflow-x: auto;
+    }
+
+    .pk-table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+    .pk-table th {
+        background: #fafafa;
+        color: #64748b;
+        font-size: 11.5px;
+        text-align: center;
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .pk-table td {
+        padding: 15px;
+        border-bottom: 1px solid #edf0f3;
+        color: #64748b;
+        vertical-align: middle;
+    }
+
+    /* POSISI ISI TABEL */
+    .pk-table td:first-child {
+        padding-left: 28px;
+    }
+
+    .pk-table td:nth-child(2) {
+        padding-left: 28px;
+    }
+
+    /* Kolom kelompok dibuat rata tengah */
+    .pk-table td:nth-child(3) {
+        text-align: center;
+    }
+
+    .pk-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .pk-name {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .pk-name > i {
+        background: #f1f4f8;
+        color: var(--navy);
+        border-radius: 8px;
+        padding: 10px;
+        height: 36px;
+    }
+
+    .pk-name b {
+        display: block;
+        color: var(--navy);
+        font-size: 12.5px;
+    }
+
+    .pk-name small {
+        display: block;
+        color: var(--muted);
+        margin-top: 5px;
+    }
+
+    .pk-instansi {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 7px;
+    }
+
+    .pk-instansi i {
+        color: #198754;
+    }
+
+    .pk-badge {
+        background: var(--yellow-soft);
+        color: #806600;
+        border: 1px solid #eadfbd;
+        border-radius: 6px;
+        padding: 7px 9px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .pk-actions {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .pk-action {
+        height: 32px;
+        width: 32px;
+        border: 1px solid var(--navy);
+        background: white;
+        color: var(--navy);
+        border-radius: 7px;
+    }
+
+    .pk-action:hover {
+        background: var(--navy);
+        color: white;
+    }
+
+    .pk-action.setting {
+        color: #806600;
+        border-color: #c5a329;
+    }
+
+    .pk-action.setting:hover {
+        background: var(--yellow);
+        color: var(--navy);
+    }
+
+    .pk-action.delete {
+        color: #c62828;
+        border-color: #c62828;
+    }
+
+    .pk-action.delete:hover {
+        background: #c62828;
+        color: white;
+    }
+
+    /* MODAL */
+    .pk-modal .modal-header {
+        background: var(--navy);
+        color: white;
+    }
+
+    .pk-modal .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+    }
+
+    .pk-modal .form-label {
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .pk-checks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        max-height: 320px;
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+    }
+
+    .pk-checks label {
+        border: 1px solid #edf0f3;
+        border-radius: 6px;
+        padding: 9px;
+        display: flex;
+        gap: 8px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .pk-message {
+        display: none;
+        margin-bottom: 16px;
+    }
+
+    .pk-empty {
+        text-align: center;
+        padding: 35px !important;
+        color: var(--muted);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+        .pk-filter-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .pk-filter-grid button {
+            justify-self: start;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .pk-filter-grid,
+        .pk-checks {
+            grid-template-columns: 1fr;
+        }
+
+        .pk-filter-grid button {
+            width: 100%;
+        }
+
+        .pk-table-head {
+            align-items: flex-start;
+        }
+
+        .pk-table-head .pk-primary {
+            padding: 10px 12px;
+        }
+    }
 </style>
 <?= $this->endSection() ?>
 
-<?= $this->section('content') ?>
-<div id="pkMessage" class="alert pk-message" role="alert"></div>
-<div class="pk-stats">
-<div class="pk-stat"><i class="bi bi-collection"></i><div><small>Total Grup</small><strong id="pkTotalGrup">0</strong></div></div>
-<div class="pk-stat"><i class="bi bi-building"></i><div><small>Total Instansi Terdaftar</small><strong id="pkTotalInstansi">0</strong></div></div>
-<div class="pk-stat"><i class="bi bi-diagram-3"></i><div><small>Kelompok Induk</small><strong id="pkTotalInduk">0</strong></div></div>
-</div>
-<div class="pk-filter"><strong><i class="bi bi-funnel"></i> Filter Data Kelompok</strong><div class="pk-filter-grid"><input id="pkSearch" type="search" placeholder="Cari nama grup atau instansi..." aria-label="Cari grup atau instansi"><select id="pkFilterInduk" aria-label="Filter kelompok induk"><option value="all">Semua Kelompok Induk</option></select><button class="pk-reset" id="pkReset" type="button"><i class="bi bi-arrow-counterclockwise"></i> Reset Filter</button></div></div>
-<div class="pk-table-card"><div class="pk-table-head"><div><h2>Daftar Kelompok</h2><p>Informasi grup, instansi, dan kelompok induk.</p></div><span class="pk-count" id="pkCount">0</span></div><div class="pk-scroll"><table class="pk-table"><thead><tr><th>Nama Kelompok</th><th>Instansi Terdaftar</th><th>Kelompok Induk</th><th>Aksi</th></tr></thead><tbody id="pkBody"><tr><td colspan="4" class="pk-empty">Memuat data...</td></tr></tbody></table></div></div>
 
-<div class="modal fade pk-modal" id="pkModalGrup" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form id="pkFormGrup" class="modal-content"><div class="modal-header"><h5 class="modal-title" id="pkModalTitle">Tambah Grup</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div><div class="modal-body"><input type="hidden" id="pkGrupId"><div class="mb-3"><label class="form-label" for="pkNamaGrup">Nama Grup</label><input class="form-control" id="pkNamaGrup" maxlength="150" required placeholder="Contoh: Grup 1"></div><div class="mb-3"><label class="form-label" for="pkInduk">Kelompok Induk</label><select class="form-select" id="pkInduk" required><option value="">Pilih kelompok induk</option></select><small class="text-muted">Jalur suara mengikuti kelompok induk, bukan diatur di sini.</small></div><div id="pkFormError" class="text-danger small" role="alert"></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Batal</button><button type="submit" class="pk-primary" id="pkSaveGrup">Simpan</button></div></form></div></div>
-<div class="modal fade pk-modal" id="pkModalInstansi" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Pengaturan Instansi</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div><div class="modal-body"><p class="small text-muted">Pilih instansi untuk <strong id="pkSettingNama"></strong>. Instansi yang dipindahkan akan keluar dari grup sebelumnya.</p><div id="pkChecks" class="pk-checks"></div><div id="pkSettingError" class="text-danger small mt-2" role="alert"></div></div><div class="modal-footer"><button class="btn btn-outline-danger" type="button" data-bs-dismiss="modal">Batal</button><button class="pk-primary" id="pkSaveInstansi" type="button">Simpan Pengaturan</button></div></div></div></div>
+<?= $this->section('content') ?>
+
+<div id="pkMessage" class="alert pk-message" role="alert"></div>
+
+<!-- STATISTIK -->
+<div class="pk-stats">
+    <div class="pk-stat">
+        <i class="bi bi-collection"></i>
+        <div>
+            <small>Total Grup</small>
+            <strong id="pkTotalGrup">0</strong>
+        </div>
+    </div>
+
+    <div class="pk-stat">
+        <i class="bi bi-building"></i>
+        <div>
+            <small>Total Instansi Terdaftar</small>
+            <strong id="pkTotalInstansi">0</strong>
+        </div>
+    </div>
+
+    <div class="pk-stat">
+        <i class="bi bi-diagram-3"></i>
+        <div>
+            <small>Total Kelompok</small>
+            <strong id="pkTotalInduk">0</strong>
+        </div>
+    </div>
+</div>
+
+<!-- FILTER -->
+<div class="pk-filter">
+    <strong>
+        <i class="bi bi-funnel"></i>
+        Filter Data Kelompok
+    </strong>
+
+    <div class="pk-filter-grid">
+        <input
+            id="pkSearch"
+            type="search"
+            placeholder="Cari nama grup atau instansi..."
+            aria-label="Cari grup atau instansi"
+        >
+
+        <select id="pkFilterInduk" aria-label="Filter kelompok induk">
+            <option value="all">Semua Kelompok Induk</option>
+        </select>
+
+        <button class="pk-search-btn" id="pkCari" type="button">
+            <i class="bi bi-search"></i>
+            Cari Data
+        </button>
+    </div>
+</div>
+
+<!-- TABEL KELOMPOK -->
+<div class="pk-table-card">
+    <div class="pk-table-head">
+        <div>
+            <h2>Daftar Kelompok</h2>
+            <p>Informasi grup, instansi, dan kelompok.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="pk-primary" id="pkTambah" type="button">
+                <i class="bi bi-plus-lg"></i>
+                Tambah Grup
+            </button>
+        </div>
+    </div>
+
+    <div class="pk-scroll">
+        <table class="pk-table">
+            <thead>
+                <tr>
+                    <th>Nama Kelompok</th>
+                    <th>Instansi Terdaftar</th>
+                    <th>Kelompok</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+
+            <tbody id="pkBody">
+                <tr>
+                    <td colspan="4" class="pk-empty">Memuat data...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL TAMBAH / EDIT GRUP -->
+<div class="modal fade pk-modal" id="pkModalGrup" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="pkFormGrup" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pkModalTitle">Tambah Grup</h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Tutup"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="pkGrupId">
+
+                <div class="mb-3">
+                    <label class="form-label" for="pkNamaGrup">Nama Grup</label>
+                    <input
+                        class="form-control"
+                        id="pkNamaGrup"
+                        maxlength="150"
+                        required
+                        placeholder="Contoh: Grup 1"
+                    >
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="pkInduk">Kelompok Induk</label>
+                    <select class="form-select" id="pkInduk" required>
+                        <option value="">Pilih kelompok induk</option>
+                    </select>
+
+                    <small class="text-muted">
+                        Jalur suara mengikuti kelompok induk, bukan diatur di sini.
+                    </small>
+                </div>
+
+                <div id="pkFormError" class="text-danger small" role="alert"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button
+                    type="button"
+                    class="btn btn-outline-danger"
+                    data-bs-dismiss="modal"
+                >
+                    Batal
+                </button>
+
+                <button type="submit" class="pk-primary" id="pkSaveGrup">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL PENGATURAN INSTANSI -->
+<div class="modal fade pk-modal" id="pkModalInstansi" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pengaturan Instansi</h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Tutup"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="small text-muted">
+                    Pilih instansi untuk <strong id="pkSettingNama"></strong>.
+                    Instansi yang dipindahkan akan keluar dari grup sebelumnya.
+                </p>
+
+                <div id="pkChecks" class="pk-checks"></div>
+                <div id="pkSettingError" class="text-danger small mt-2" role="alert"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button
+                    class="btn btn-outline-danger"
+                    type="button"
+                    data-bs-dismiss="modal"
+                >
+                    Batal
+                </button>
+
+                <button class="pk-primary" id="pkSaveInstansi" type="button">
+                    Simpan Pengaturan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
+
 
 <?= $this->section('scripts') ?>
 <script>
 (() => {
-'use strict';
-const URL_GRUP = <?= json_encode(site_url('admin/grup')) ?>;
-const URL_KELOMPOK = <?= json_encode(site_url('admin/kelompok')) ?>;
-const URL_INSTANSI = <?= json_encode(site_url('admin/instansi')) ?>;
-const csrfName = <?= json_encode(csrf_token()) ?>;
-let csrfHash = <?= json_encode(csrf_hash()) ?>;
-const el = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let grup = [], kelompok = [], instansi = [], settingGrupId = null;
-const modalGrup = bootstrap.Modal.getOrCreateInstance(el('pkModalGrup'));
-const modalInstansi = bootstrap.Modal.getOrCreateInstance(el('pkModalInstansi'));
-function message(text, type='danger') {const box=el('pkMessage');box.textContent=text;box.className=`alert alert-${type} pk-message`;box.style.display='block';box.scrollIntoView({behavior:'smooth',block:'nearest'});}
-function clearMessage(){el('pkMessage').style.display='none';}
-async function api(url, options={}) {
- const headers={'Accept':'application/json',...(options.headers||{})};
- if(options.body) headers['Content-Type']='application/json';
- if(options.method && options.method!=='GET') headers['X-CSRF-TOKEN']=csrfHash;
- const response=await fetch(url,{credentials:'same-origin',...options,headers});
- const text=await response.text();let result;
- try{result=JSON.parse(text);}catch{throw new Error(`Respons server bukan JSON (HTTP ${response.status}). Periksa route/controller atau sesi login.`);}
- if(result.csrfHash) csrfHash=result.csrfHash;
- if(result.token) csrfHash=result.token;
- if(!response.ok || result.status===false) throw new Error(result.message || `HTTP ${response.status}`);
- return result;
-}
-function listOf(result){return Array.isArray(result.data)?result.data:(Array.isArray(result)?result:[]);}
-function groupId(row){return Number(row.id);}
-function instansiGrupId(row){return row.grup_id===null || row.grup_id===''?null:Number(row.grup_id);}
-function namaInstansi(row){return row.nama_instansi ?? row.nama ?? '';}
-function namaGrup(row){return row.nama_grup ?? row.nama ?? '';}
-function namaInduk(row){return row.nama_kelompok ?? '';}
-function renderFilters(){const chosen=el('pkFilterInduk').value;el('pkFilterInduk').innerHTML='<option value="all">Semua Kelompok Induk</option>'+kelompok.map(k=>`<option value="${Number(k.id)}">${esc(namaInduk(k))}</option>`).join('');if([...el('pkFilterInduk').options].some(o=>o.value===chosen))el('pkFilterInduk').value=chosen;el('pkInduk').innerHTML='<option value="">Pilih kelompok induk</option>'+kelompok.map(k=>`<option value="${Number(k.id)}">${esc(namaInduk(k))}</option>`).join('');}
-function render(){
- const keyword=el('pkSearch').value.toLocaleLowerCase('id').trim(),filter=el('pkFilterInduk').value;
- const shown=grup.filter(g=>{const names=instansi.filter(i=>instansiGrupId(i)===groupId(g)).map(namaInstansi).join(' ');return (filter==='all'||String(g.kelompok_id)===filter)&&(namaGrup(g)+' '+names).toLocaleLowerCase('id').includes(keyword);});
- el('pkTotalGrup').textContent=grup.length;el('pkTotalInstansi').textContent=instansi.filter(i=>instansiGrupId(i)!==null).length;el('pkTotalInduk').textContent=kelompok.length;el('pkCount').textContent=shown.length;
- el('pkBody').innerHTML=shown.length?shown.map(g=>{const parent=kelompok.find(k=>Number(k.id)===Number(g.kelompok_id));const children=instansi.filter(i=>instansiGrupId(i)===groupId(g));return `<tr><td><div class="pk-name"><i class="bi bi-collection"></i><div><b>${esc(namaGrup(g))}</b><small>ID Grup: ${groupId(g)}</small></div></div></td><td>${children.length?children.map(i=>`<div class="pk-instansi"><i class="bi bi-check2-circle"></i><span>${esc(namaInstansi(i))}</span></div>`).join(''):'<span class="text-muted fst-italic">Belum ada instansi</span>'}</td><td><span class="pk-badge"><i class="bi bi-diagram-3"></i>${esc(parent?namaInduk(parent):'Belum diatur')}</span>${parent?`<div class="small text-muted mt-1">Jalur ${esc(parent.suara)}</div>`:''}</td><td><div class="pk-actions"><button class="pk-action" data-action="edit" data-id="${groupId(g)}" title="Edit grup" aria-label="Edit grup"><i class="bi bi-pencil"></i></button><button class="pk-action setting" data-action="instansi" data-id="${groupId(g)}" title="Atur instansi" aria-label="Atur instansi"><i class="bi bi-sliders"></i></button><button class="pk-action delete" data-action="delete" data-id="${groupId(g)}" title="Hapus grup" aria-label="Hapus grup"><i class="bi bi-trash3"></i></button></div></td></tr>`;}).join(''):'<tr><td colspan="4" class="pk-empty"><i class="bi bi-search"></i><br>Data tidak ditemukan</td></tr>';
-}
-async function load(){const [k,g,i]=await Promise.all([api(URL_KELOMPOK),api(URL_GRUP),api(URL_INSTANSI)]);kelompok=listOf(k);grup=listOf(g);instansi=listOf(i);renderFilters();render();}
-function openGrup(id=null){el('pkFormGrup').reset();el('pkFormError').textContent='';el('pkGrupId').value=id??'';const row=grup.find(g=>groupId(g)===id);el('pkModalTitle').textContent=row?'Edit Grup':'Tambah Grup';if(row){el('pkNamaGrup').value=namaGrup(row);el('pkInduk').value=String(row.kelompok_id);}if(!kelompok.length){message('Belum ada kelompok induk. Tambahkan kelompok induk melalui API admin/kelompok terlebih dahulu.');return;}modalGrup.show();}
-el('pkTambah').addEventListener('click',()=>openGrup());el('pkSearch').addEventListener('input',render);el('pkFilterInduk').addEventListener('change',render);el('pkReset').addEventListener('click',()=>{el('pkSearch').value='';el('pkFilterInduk').value='all';render();});
-el('pkFormGrup').addEventListener('submit',async e=>{e.preventDefault();const id=Number(el('pkGrupId').value),nama=el('pkNamaGrup').value.trim(),induk=Number(el('pkInduk').value);if(!nama||!induk)return;const btn=el('pkSaveGrup');btn.disabled=true;el('pkFormError').textContent='';try{await api(id?`${URL_GRUP}/${id}`:URL_GRUP,{method:id?'PUT':'POST',body:JSON.stringify({nama_grup:nama,kelompok_id:induk})});modalGrup.hide();await load();message(id?'Grup berhasil diperbarui.':'Grup berhasil ditambahkan.','success');}catch(err){el('pkFormError').textContent=err.message;}finally{btn.disabled=false;}});
-function openInstansi(id){const row=grup.find(g=>groupId(g)===id);if(!row)return;settingGrupId=id;el('pkSettingNama').textContent=namaGrup(row);el('pkSettingError').textContent='';el('pkChecks').innerHTML=instansi.length?instansi.map(i=>`<label><input type="checkbox" value="${Number(i.id)}" ${instansiGrupId(i)===id?'checked':''}><span>${esc(namaInstansi(i))}${instansiGrupId(i)!==null&&instansiGrupId(i)!==id?' (grup lain)':''}</span></label>`).join(''):'<p>Belum ada instansi.</p>';modalInstansi.show();}
-el('pkBody').addEventListener('click',async e=>{const btn=e.target.closest('button[data-action]');if(!btn)return;const id=Number(btn.dataset.id),row=grup.find(g=>groupId(g)===id);if(!row)return;if(btn.dataset.action==='edit'){openGrup(id);return;}if(btn.dataset.action==='instansi'){openInstansi(id);return;}if(btn.dataset.action==='delete'){if(instansi.some(i=>instansiGrupId(i)===id)){message('Grup masih memiliki instansi. Pindahkan atau lepaskan instansinya terlebih dahulu.');return;}if(!confirm(`Hapus grup "${namaGrup(row)}"?`))return;btn.disabled=true;try{await api(`${URL_GRUP}/${id}`,{method:'DELETE'});await load();message('Grup berhasil dihapus.','success');}catch(err){message(err.message);btn.disabled=false;}}});
-el('pkSaveInstansi').addEventListener('click',async()=>{if(settingGrupId===null)return;const selected=new Set([...el('pkChecks').querySelectorAll('input:checked')].map(x=>Number(x.value)));const changes=instansi.filter(i=>(selected.has(Number(i.id))&&instansiGrupId(i)!==settingGrupId)||(!selected.has(Number(i.id))&&instansiGrupId(i)===settingGrupId));const btn=el('pkSaveInstansi');btn.disabled=true;el('pkSettingError').textContent='';try{for(const i of changes){const target=selected.has(Number(i.id))?settingGrupId:null;await api(`${URL_INSTANSI}/${Number(i.id)}`,{method:'PUT',body:JSON.stringify({grup_id:target})});}modalInstansi.hide();await load();message('Pengaturan instansi berhasil disimpan.','success');}catch(err){el('pkSettingError').textContent='Sebagian perubahan mungkin sudah tersimpan. '+err.message+' Periksa ulang data.';try{await load();}catch{}}finally{btn.disabled=false;}});
-load().catch(err=>{el('pkBody').innerHTML='<tr><td colspan="4" class="pk-empty">Gagal memuat data.</td></tr>';message(err.message);});
+    'use strict';
+
+    const URL_GRUP = <?= json_encode(site_url('admin/grup')) ?>;
+    const URL_KELOMPOK = <?= json_encode(site_url('admin/kelompok')) ?>;
+    const URL_INSTANSI = <?= json_encode(site_url('admin/instansi')) ?>;
+
+    const csrfName = <?= json_encode(csrf_token()) ?>;
+    let csrfHash = <?= json_encode(csrf_hash()) ?>;
+
+    const el = id => document.getElementById(id);
+
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[c]));
+
+    let grup = [];
+    let kelompok = [];
+    let instansi = [];
+    let settingGrupId = null;
+
+    const modalGrup = bootstrap.Modal.getOrCreateInstance(el('pkModalGrup'));
+    const modalInstansi = bootstrap.Modal.getOrCreateInstance(el('pkModalInstansi'));
+
+    function message(text, type = 'danger') {
+        const box = el('pkMessage');
+
+        box.textContent = text;
+        box.className = `alert alert-${type} pk-message`;
+        box.style.display = 'block';
+
+        box.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+    }
+
+    function clearMessage() {
+        el('pkMessage').style.display = 'none';
+    }
+
+    async function api(url, options = {}) {
+        const headers = {
+            'Accept': 'application/json',
+            ...(options.headers || {})
+        };
+
+        if (options.body) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        if (options.method && options.method !== 'GET') {
+            headers['X-CSRF-TOKEN'] = csrfHash;
+        }
+
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            ...options,
+            headers
+        });
+
+        const text = await response.text();
+        let result;
+
+        try {
+            result = JSON.parse(text);
+        } catch {
+            throw new Error(
+                `Respons server bukan JSON (HTTP ${response.status}). Periksa route/controller atau sesi login.`
+            );
+        }
+
+        if (result.csrfHash) {
+            csrfHash = result.csrfHash;
+        }
+
+        if (result.token) {
+            csrfHash = result.token;
+        }
+
+        if (!response.ok || result.status === false) {
+            throw new Error(result.message || `HTTP ${response.status}`);
+        }
+
+        return result;
+    }
+
+    function listOf(result) {
+        return Array.isArray(result.data)
+            ? result.data
+            : (Array.isArray(result) ? result : []);
+    }
+
+    function groupId(row) {
+        return Number(row.id);
+    }
+
+    function instansiGrupId(row) {
+        return row.grup_id === null || row.grup_id === ''
+            ? null
+            : Number(row.grup_id);
+    }
+
+    function namaInstansi(row) {
+        return row.nama_instansi ?? row.nama ?? '';
+    }
+
+    function namaGrup(row) {
+        return row.nama_grup ?? row.nama ?? '';
+    }
+
+    function namaInduk(row) {
+        return row.nama_kelompok ?? '';
+    }
+
+    function renderFilters() {
+        const chosen = el('pkFilterInduk').value;
+
+        el('pkFilterInduk').innerHTML =
+            '<option value="all">Semua Kelompok</option>' +
+            kelompok.map(k =>
+                `<option value="${Number(k.id)}">${esc(namaInduk(k))}</option>`
+            ).join('');
+
+        if ([...el('pkFilterInduk').options].some(o => o.value === chosen)) {
+            el('pkFilterInduk').value = chosen;
+        }
+
+        el('pkInduk').innerHTML =
+            '<option value="">Pilih kelompok</option>' +
+            kelompok.map(k =>
+                `<option value="${Number(k.id)}">${esc(namaInduk(k))}</option>`
+            ).join('');
+    }
+
+    function render() {
+        const keyword = el('pkSearch').value.toLocaleLowerCase('id').trim();
+        const filter = el('pkFilterInduk').value;
+
+        const shown = grup.filter(g => {
+            const names = instansi
+                .filter(i => instansiGrupId(i) === groupId(g))
+                .map(namaInstansi)
+                .join(' ');
+
+            return (
+                (filter === 'all' || String(g.kelompok_id) === filter) &&
+                (namaGrup(g) + ' ' + names).toLocaleLowerCase('id').includes(keyword)
+            );
+        });
+
+        el('pkTotalGrup').textContent = grup.length;
+
+        el('pkTotalInstansi').textContent =
+            instansi.filter(i => instansiGrupId(i) !== null).length;
+
+        el('pkTotalInduk').textContent = kelompok.length;
+
+        el('pkBody').innerHTML = shown.length
+            ? shown.map(g => {
+                const parent = kelompok.find(
+                    k => Number(k.id) === Number(g.kelompok_id)
+                );
+
+                const children = instansi.filter(
+                    i => instansiGrupId(i) === groupId(g)
+                );
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="pk-name">
+                                <i class="bi bi-collection"></i>
+                                <div>
+                                    <b>${esc(namaGrup(g))}</b>
+                                    <small>ID Grup: ${groupId(g)}</small>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>
+                            ${
+                                children.length
+                                    ? children.map(i => `
+                                        <div class="pk-instansi">
+                                            <i class="bi bi-check2-circle"></i>
+                                            <span>${esc(namaInstansi(i))}</span>
+                                        </div>
+                                    `).join('')
+                                    : '<span class="text-muted fst-italic">Belum ada instansi</span>'
+                            }
+                        </td>
+
+                        <td>
+                            <span class="pk-badge">
+                                <i class="bi bi-diagram-3"></i>
+                                ${esc(parent ? namaInduk(parent) : 'Belum diatur')}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="pk-actions">
+                                <button
+                                    class="pk-action"
+                                    data-action="edit"
+                                    data-id="${groupId(g)}"
+                                    title="Edit grup"
+                                    aria-label="Edit grup"
+                                >
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+
+                                <button
+                                    class="pk-action setting"
+                                    data-action="instansi"
+                                    data-id="${groupId(g)}"
+                                    title="Atur instansi"
+                                    aria-label="Atur instansi"
+                                >
+                                    <i class="bi bi-sliders"></i>
+                                </button>
+
+                                <button
+                                    class="pk-action delete"
+                                    data-action="delete"
+                                    data-id="${groupId(g)}"
+                                    title="Hapus grup"
+                                    aria-label="Hapus grup"
+                                >
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('')
+            : `
+                <tr>
+                    <td colspan="4" class="pk-empty">
+                        <i class="bi bi-search"></i>
+                        <br>
+                        Data tidak ditemukan
+                    </td>
+                </tr>
+            `;
+    }
+
+    async function load() {
+        const [k, g, i] = await Promise.all([
+            api(URL_KELOMPOK),
+            api(URL_GRUP),
+            api(URL_INSTANSI)
+        ]);
+
+        kelompok = listOf(k);
+        grup = listOf(g);
+        instansi = listOf(i);
+
+        renderFilters();
+        render();
+    }
+
+    function openGrup(id = null) {
+        el('pkFormGrup').reset();
+        el('pkFormError').textContent = '';
+        el('pkGrupId').value = id ?? '';
+
+        const row = grup.find(g => groupId(g) === id);
+
+        el('pkModalTitle').textContent = row ? 'Edit Grup' : 'Tambah Grup';
+
+        if (row) {
+            el('pkNamaGrup').value = namaGrup(row);
+            el('pkInduk').value = String(row.kelompok_id);
+        }
+
+        if (!kelompok.length) {
+            message(
+                'Belum ada kelompok. Tambahkan kelompok induk melalui API admin/kelompok terlebih dahulu.'
+            );
+            return;
+        }
+
+        modalGrup.show();
+    }
+
+    el('pkTambah').addEventListener('click', () => openGrup());
+
+    // Pencarian dijalankan melalui tombol Cari Data.
+    el('pkCari').addEventListener('click', render);
+
+    el('pkSearch').addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            render();
+        }
+    });
+
+    el('pkFilterInduk').addEventListener('change', render);
+
+    // TAMBAH / EDIT GRUP
+    el('pkFormGrup').addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const id = Number(el('pkGrupId').value);
+        const nama = el('pkNamaGrup').value.trim();
+        const induk = Number(el('pkInduk').value);
+
+        if (!nama || !induk) {
+            return;
+        }
+
+        const btn = el('pkSaveGrup');
+
+        btn.disabled = true;
+        el('pkFormError').textContent = '';
+
+        try {
+            await api(
+                id ? `${URL_GRUP}/${id}` : URL_GRUP,
+                {
+                    method: id ? 'PUT' : 'POST',
+                    body: JSON.stringify({
+                        nama_grup: nama,
+                        kelompok_id: induk
+                    })
+                }
+            );
+
+            modalGrup.hide();
+            await load();
+
+            message(
+                id ? 'Grup berhasil diperbarui.' : 'Grup berhasil ditambahkan.',
+                'success'
+            );
+        } catch (err) {
+            el('pkFormError').textContent = err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // PENGATURAN INSTANSI
+    function openInstansi(id) {
+        const row = grup.find(g => groupId(g) === id);
+
+        if (!row) {
+            return;
+        }
+
+        settingGrupId = id;
+        el('pkSettingNama').textContent = namaGrup(row);
+        el('pkSettingError').textContent = '';
+
+        el('pkChecks').innerHTML = instansi.length
+            ? instansi.map(i => `
+                <label>
+                    <input
+                        type="checkbox"
+                        value="${Number(i.id)}"
+                        ${instansiGrupId(i) === id ? 'checked' : ''}
+                    >
+                    <span>
+                        ${esc(namaInstansi(i))}
+                        ${
+                            instansiGrupId(i) !== null &&
+                            instansiGrupId(i) !== id
+                                ? ' (grup lain)'
+                                : ''
+                        }
+                    </span>
+                </label>
+            `).join('')
+            : '<p>Belum ada instansi.</p>';
+
+        modalInstansi.show();
+    }
+
+    // AKSI TABEL
+    el('pkBody').addEventListener('click', async e => {
+        const btn = e.target.closest('button[data-action]');
+
+        if (!btn) {
+            return;
+        }
+
+        const id = Number(btn.dataset.id);
+        const row = grup.find(g => groupId(g) === id);
+
+        if (!row) {
+            return;
+        }
+
+        if (btn.dataset.action === 'edit') {
+            openGrup(id);
+            return;
+        }
+
+        if (btn.dataset.action === 'instansi') {
+            openInstansi(id);
+            return;
+        }
+
+        if (btn.dataset.action === 'delete') {
+            if (instansi.some(i => instansiGrupId(i) === id)) {
+                message(
+                    'Grup masih memiliki instansi. Pindahkan atau lepaskan instansinya terlebih dahulu.'
+                );
+                return;
+            }
+
+            if (!confirm(`Hapus grup "${namaGrup(row)}"?`)) {
+                return;
+            }
+
+            btn.disabled = true;
+
+            try {
+                await api(`${URL_GRUP}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                await load();
+                message('Grup berhasil dihapus.', 'success');
+            } catch (err) {
+                message(err.message);
+                btn.disabled = false;
+            }
+        }
+    });
+
+    // SIMPAN PENGATURAN INSTANSI
+    el('pkSaveInstansi').addEventListener('click', async () => {
+        if (settingGrupId === null) {
+            return;
+        }
+
+        const selected = new Set(
+            [...el('pkChecks').querySelectorAll('input:checked')]
+                .map(x => Number(x.value))
+        );
+
+        const changes = instansi.filter(i =>
+            (
+                selected.has(Number(i.id)) &&
+                instansiGrupId(i) !== settingGrupId
+            ) ||
+            (
+                !selected.has(Number(i.id)) &&
+                instansiGrupId(i) === settingGrupId
+            )
+        );
+
+        const btn = el('pkSaveInstansi');
+
+        btn.disabled = true;
+        el('pkSettingError').textContent = '';
+
+        try {
+            for (const i of changes) {
+                const target = selected.has(Number(i.id))
+                    ? settingGrupId
+                    : null;
+
+                await api(`${URL_INSTANSI}/${Number(i.id)}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        grup_id: target
+                    })
+                });
+            }
+
+            modalInstansi.hide();
+            await load();
+
+            message(
+                'Pengaturan instansi berhasil disimpan.',
+                'success'
+            );
+        } catch (err) {
+            el('pkSettingError').textContent =
+                'Sebagian perubahan mungkin sudah tersimpan. ' +
+                err.message +
+                ' Periksa ulang data.';
+
+            try {
+                await load();
+            } catch {}
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // MUAT DATA AWAL
+    load().catch(err => {
+        el('pkBody').innerHTML = `
+            <tr>
+                <td colspan="4" class="pk-empty">
+                    Gagal memuat data.
+                </td>
+            </tr>
+        `;
+
+        message(err.message);
+    });
 })();
 </script>
 <?= $this->endSection() ?>

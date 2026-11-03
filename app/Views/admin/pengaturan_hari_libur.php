@@ -1,70 +1,54 @@
 <?= $this->extend('layouts/admin') ?>
 
 <?= $this->section('pageTitle') ?>
-<div class="page-header">
+<div class="pk-heading">
     <div>
-        <div class="page-title">
-            <h1>Pengaturan Hari Libur</h1>
-        </div>
-        <p class="page-description">
-            Kelola jadwal hari libur dan penutupan layanan MPP Kota Tangerang.
-        </p>
+        <h1>Pengaturan Hari Libur</h1>
+        <p>Kelola jadwal hari libur dan penutupan layanan MPP Kota Tangerang.</p>
     </div>
-
-    <button class="btn-add" type="button" onclick="bukaTambah()">
-        <i class="bi bi-plus-lg"></i>
-        Tambah Hari Libur
-    </button>
 </div>
 <?= $this->endSection() ?>
 
 
 <?= $this->section('styles') ?>
 <style>
-    .page-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 23px;
+    /* HEADING */
+    .pk-heading {
+        margin-bottom: 22px;
     }
 
-    .page-title h1 {
-        margin: 0;
-        color: var(--navy);
-        font-size: 25px;
+    .pk-heading h1 {
+        font-size: 23px;
         font-weight: 700;
+        color: var(--navy);
+        margin: 0;
     }
 
-    .page-description {
-        margin: 6px 0 0;
+    .pk-heading p {
         color: var(--muted);
-        font-size: 12px;
+        font-size: 12.5px;
+        margin: 5px 0 0;
     }
 
-    .btn-add {
-        min-height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        padding: 0 16px;
-        border: none;
-        border-radius: 8px;
+    /* BUTTON */
+    .pk-primary {
+        border: 0;
         background: var(--navy);
         color: white;
-        font-size: 13px;
-        font-weight: 600;
+        border-radius: 7px;
+        padding: 11px 16px;
+        font-size: 12px;
+        font-weight: 700;
         white-space: nowrap;
         cursor: pointer;
-        transition: background .2s ease;
     }
 
-    .btn-add:hover {
+    .pk-primary:hover {
         background: var(--navy-light);
         color: white;
     }
 
+    /* STATISTIK */
     .stats-row {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -116,48 +100,85 @@
         font-size: 22px;
     }
 
-    .filter-box {
-        padding: 16px;
+    /* FILTER */
+    .pk-filter {
+        padding: 17px 18px;
         margin-bottom: 18px;
         background: white;
         border: 1px solid var(--border);
         border-radius: 9px;
     }
 
-    .filter-row {
-        display: grid;
-        grid-template-columns: 1.5fr 1fr 1fr auto;
-        gap: 10px;
-    }
-
-    .filter-row .form-control,
-    .filter-row .form-select {
-        min-height: 40px;
-        border-color: var(--border);
-        border-radius: 7px;
+    .pk-filter > strong {
         font-size: 13px;
+        color: var(--navy);
+        display: block;
+        margin-bottom: 13px;
     }
 
-    .btn-reset {
+    .pk-filter-grid {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 200px 200px auto;
+        gap: 12px;
+    }
+
+    .pk-filter input,
+    .pk-filter select {
+        width: 100%;
         min-height: 40px;
-        padding: 0 15px;
         border: 1px solid var(--border);
         border-radius: 7px;
-        background: white;
-        color: #667085;
-        font-size: 13px;
+        padding: 10px;
+        font-size: 12px;
     }
 
-    .btn-reset:hover {
-        background: #f8f9fa;
+    .pk-search-btn {
+        background: var(--navy);
+        color: white;
+        border: 0;
+        border-radius: 7px;
+        padding: 9px 24px;
+        min-width: 140px;
+        min-height: 40px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
     }
 
+    .pk-search-btn:hover {
+        background: var(--navy-light);
+    }
+
+    /* TABEL */
     .table-card {
         overflow: hidden;
         background: white;
         border: 1px solid var(--border);
         border-radius: 9px;
         box-shadow: 0 5px 18px rgba(16, 35, 63, .04);
+    }
+
+    .pk-table-head {
+        padding: 13px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .pk-table-head h2 {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--navy);
+        margin: 0;
+    }
+
+    .pk-table-head p {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin: 5px 0 0;
     }
 
     .table-card .table {
@@ -172,6 +193,7 @@
         border-bottom: 1px solid var(--border);
         font-size: 12px;
         font-weight: 600;
+        text-align: center;
         white-space: nowrap;
     }
 
@@ -260,6 +282,7 @@
         font-size: 26px;
     }
 
+    /* MODAL */
     #modalHariLibur .modal-content {
         overflow: hidden;
         border: none;
@@ -313,28 +336,36 @@
         color: white;
     }
 
+    /* RESPONSIVE */
     @media (max-width: 1100px) {
-        .filter-row {
+        .pk-filter-grid {
             grid-template-columns: 1fr 1fr;
+        }
+
+        .pk-filter-grid button {
+            justify-self: start;
         }
     }
 
     @media (max-width: 768px) {
-        .page-header {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-        .page-title h1 {
-            font-size: 22px;
-        }
-
         .stats-row {
             grid-template-columns: 1fr;
         }
 
-        .filter-row {
+        .pk-filter-grid {
             grid-template-columns: 1fr;
+        }
+
+        .pk-filter-grid button {
+            width: 100%;
+        }
+
+        .pk-table-head {
+            align-items: flex-start;
+        }
+
+        .pk-table-head .pk-primary {
+            padding: 10px 12px;
         }
 
         .table-footer {
@@ -380,35 +411,52 @@
     </div>
 </div>
 
-<!-- FILTER -->
-<div class="filter-box">
-    <div class="filter-row">
+<!-- FILTER DATA -->
+<div class="pk-filter">
+    <strong>
+        <i class="bi bi-funnel"></i>
+        Filter Data Hari Libur
+    </strong>
+
+    <div class="pk-filter-grid">
         <input
-            type="search"
             id="searchLibur"
-            class="form-control"
+            type="search"
             placeholder="Cari nama hari libur atau keterangan..."
+            aria-label="Cari hari libur"
         >
 
-        <select id="filterTahun" class="form-select">
+        <select id="filterTahun" aria-label="Filter tahun">
             <option value="">Semua Tahun</option>
         </select>
 
-        <select id="filterJenis" class="form-select">
+        <select id="filterJenis" aria-label="Filter jenis hari libur">
             <option value="">Semua Jenis Libur</option>
             <option value="Nasional">Libur Nasional</option>
             <option value="Khusus MPP">Libur Khusus MPP</option>
         </select>
 
-        <button type="button" class="btn-reset" id="resetFilter">
-            <i class="bi bi-arrow-counterclockwise"></i>
-            Reset
+        <button class="pk-search-btn" id="cariData" type="button">
+            <i class="bi bi-search"></i>
+            Cari Data
         </button>
     </div>
 </div>
 
-<!-- TABEL -->
+<!-- TABEL HARI LIBUR -->
 <div class="table-card">
+    <div class="pk-table-head">
+        <div>
+            <h2>Daftar Hari Libur</h2>
+            <p>Informasi jadwal hari libur dan penutupan layanan MPP Kota Tangerang.</p>
+        </div>
+
+        <button class="pk-primary" type="button" onclick="bukaTambah()">
+            <i class="bi bi-plus-lg"></i>
+            Tambah Hari Libur
+        </button>
+    </div>
+
     <div class="table-responsive">
         <table class="table">
             <thead>
@@ -421,12 +469,19 @@
                     <th style="width:100px">Aksi</th>
                 </tr>
             </thead>
-            <tbody id="hariLiburBody"></tbody>
+            <tbody id="hariLiburBody">
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <i class="bi bi-search"></i>
+                        Atur filter data, lalu klik tombol Cari Data.
+                    </td>
+                </tr>
+            </tbody>
         </table>
     </div>
 
     <div class="table-footer">
-        <span id="infoData">Menampilkan data hari libur</span>
+        <span id="infoData">Silakan lakukan pencarian data hari libur.</span>
         <span>
             <i class="bi bi-info-circle me-1"></i>
             Data tersimpan di database MPP.
@@ -528,6 +583,9 @@
     let csrfHash = <?= json_encode(csrf_hash()) ?>;
     let dataHariLibur = [];
 
+    // Filter yang diterapkan hanya setelah tombol Cari Data diklik.
+    let filterDiterapkan = null;
+
     const modalElement = document.getElementById('modalHariLibur');
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     const form = document.getElementById('formHariLibur');
@@ -594,8 +652,10 @@
     // ============================================================
     async function muatHariLibur() {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Memuat data hari libur...</td></tr>';
+
         try {
             const hasil = await requestAPI(apiHariLibur);
+
             dataHariLibur = Array.isArray(hasil.data)
                 ? hasil.data.map(item => ({
                     id: Number(item.id),
@@ -605,8 +665,11 @@
                     keterangan: String(item.keterangan ?? '')
                 }))
                 : [];
+
             perbaruiPilihanTahun();
-            tampilkanHariLibur();
+            perbaruiStatistik();
+            tampilkanInstruksiPencarian();
+
         } catch (error) {
             tbody.innerHTML = '<tr><td colspan="6" class="empty-state">' +
                 escapeHTML(error.message) + '</td></tr>';
@@ -615,54 +678,108 @@
     }
 
     // ============================================================
-    // FILTER TAHUN, PENCARIAN, DAN JENIS
+    // FILTER TAHUN
     // ============================================================
     function perbaruiPilihanTahun() {
         const select = document.getElementById('filterTahun');
         const tahunDipilih = select.value;
+
         const tahunData = [...new Set(dataHariLibur
             .map(item => item.tanggal.substring(0, 4))
             .filter(Boolean))].sort();
 
         select.innerHTML = '<option value="">Semua Tahun</option>';
+
         tahunData.forEach(function (tahun) {
             const option = document.createElement('option');
             option.value = tahun;
             option.textContent = 'Tahun ' + tahun;
             select.appendChild(option);
         });
-        if (tahunData.includes(tahunDipilih)) select.value = tahunDipilih;
+
+        if (tahunData.includes(tahunDipilih)) {
+            select.value = tahunDipilih;
+        }
     }
 
     // ============================================================
-    // RENDER TABEL DAN STATISTIK
+    // STATISTIK
+    // ============================================================
+    function perbaruiStatistik() {
+        document.getElementById('statTotal').textContent = dataHariLibur.length;
+
+        document.getElementById('statNasional').textContent =
+            dataHariLibur.filter(item => item.jenis === 'Nasional').length;
+
+        document.getElementById('statKhusus').textContent =
+            dataHariLibur.filter(item => item.jenis === 'Khusus MPP').length;
+    }
+
+    // ============================================================
+    // TAMPILKAN INSTRUKSI SEBELUM PENCARIAN
+    // ============================================================
+    function tampilkanInstruksiPencarian() {
+        tbody.innerHTML = `<tr>
+            <td colspan="6" class="empty-state">
+                <i class="bi bi-search"></i>
+                Atur filter data, lalu klik tombol Cari Data.
+            </td>
+        </tr>`;
+
+        document.getElementById('infoData').textContent =
+            'Silakan lakukan pencarian data hari libur.';
+    }
+
+    // ============================================================
+    // TOMBOL CARI DATA
+    // ============================================================
+    function cariDataHariLibur() {
+        filterDiterapkan = {
+            pencarian: document.getElementById('searchLibur').value.toLowerCase().trim(),
+            tahun: document.getElementById('filterTahun').value,
+            jenis: document.getElementById('filterJenis').value
+        };
+
+        tampilkanHariLibur();
+    }
+
+    // ============================================================
+    // RENDER TABEL
     // ============================================================
     function tampilkanHariLibur() {
-        const pencarian = document.getElementById('searchLibur').value.toLowerCase().trim();
-        const tahun = document.getElementById('filterTahun').value;
-        const jenis = document.getElementById('filterJenis').value;
+        if (!filterDiterapkan) {
+            tampilkanInstruksiPencarian();
+            return;
+        }
+
+        const pencarian = filterDiterapkan.pencarian;
+        const tahun = filterDiterapkan.tahun;
+        const jenis = filterDiterapkan.jenis;
 
         const hasil = dataHariLibur.filter(function (item) {
-            const cocokCari = item.nama.toLowerCase().includes(pencarian) ||
+            const cocokCari =
+                item.nama.toLowerCase().includes(pencarian) ||
                 item.keterangan.toLowerCase().includes(pencarian) ||
                 item.tanggal.includes(pencarian);
-            return cocokCari && (!tahun || item.tanggal.startsWith(tahun)) &&
+
+            return cocokCari &&
+                (!tahun || item.tanggal.startsWith(tahun)) &&
                 (!jenis || item.jenis === jenis);
         }).sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
-        document.getElementById('statTotal').textContent = dataHariLibur.length;
-        document.getElementById('statNasional').textContent =
-            dataHariLibur.filter(item => item.jenis === 'Nasional').length;
-        document.getElementById('statKhusus').textContent =
-            dataHariLibur.filter(item => item.jenis === 'Khusus MPP').length;
+        perbaruiStatistik();
 
         if (hasil.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="empty-state">
-                <i class="bi bi-calendar2-x"></i>Tidak ada data hari libur yang sesuai.
+                <i class="bi bi-calendar2-x"></i>
+                Tidak ada data hari libur yang sesuai.
                 </td></tr>`;
         } else {
             tbody.innerHTML = hasil.map(function (item, index) {
-                const badge = item.jenis === 'Nasional' ? 'badge-national' : 'badge-special';
+                const badge = item.jenis === 'Nasional'
+                    ? 'badge-national'
+                    : 'badge-special';
+
                 return `<tr>
                     <td>${index + 1}</td>
                     <td><i class="bi bi-calendar3 me-1"></i>${escapeHTML(formatTanggal(item.tanggal))}</td>
@@ -679,6 +796,7 @@
                     </div></td></tr>`;
             }).join('');
         }
+
         document.getElementById('infoData').textContent =
             'Menampilkan ' + hasil.length + ' dari ' + dataHariLibur.length + ' data hari libur';
     }
@@ -696,6 +814,7 @@
     function editHariLibur(id) {
         const item = dataHariLibur.find(data => data.id === Number(id));
         if (!item) return;
+
         form.reset();
         document.getElementById('liburId').value = item.id;
         document.getElementById('tanggalLibur').value = item.tanggal;
@@ -714,39 +833,51 @@
         if (!form.reportValidity()) return;
 
         const id = document.getElementById('liburId').value;
+
         const data = {
             tanggal: document.getElementById('tanggalLibur').value,
             nama: document.getElementById('namaLibur').value.trim(),
             jenis: document.getElementById('jenisLibur').value,
             keterangan: document.getElementById('keteranganLibur').value.trim()
         };
+
         if (!data.tanggal || !data.nama || !data.jenis) {
             alert('Tanggal, nama, dan jenis hari libur wajib diisi.');
             return;
         }
+
         if (data.keterangan.length > 255) {
             alert('Keterangan maksimal 255 karakter.');
             return;
         }
+
         const duplikat = dataHariLibur.some(item =>
-            item.tanggal === data.tanggal && String(item.id) !== id);
+            item.tanggal === data.tanggal && String(item.id) !== id
+        );
+
         if (duplikat) {
             alert('Tanggal tersebut sudah terdaftar sebagai hari libur.');
             return;
         }
 
         tombolSimpan.disabled = true;
+
         try {
             const hasil = await requestAPI(
                 id ? apiHariLibur + '/' + encodeURIComponent(id) : apiHariLibur,
-                id ? 'PUT' : 'POST', data
+                id ? 'PUT' : 'POST',
+                data
             );
+
             modal.hide();
             alert(hasil.message || 'Data hari libur berhasil disimpan.');
+
             // Reload mengambil data dan token CSRF terbaru, aman saat regenerate=true.
             window.location.reload();
+
         } catch (error) {
             alert(error.message);
+
         } finally {
             tombolSimpan.disabled = false;
         }
@@ -758,12 +889,18 @@
     async function hapusHariLibur(id) {
         const item = dataHariLibur.find(data => data.id === Number(id));
         if (!item) return;
+
         if (!confirm('Hapus hari libur "' + item.nama + '"?')) return;
 
         try {
-            const hasil = await requestAPI(apiHariLibur + '/' + encodeURIComponent(id), 'DELETE');
+            const hasil = await requestAPI(
+                apiHariLibur + '/' + encodeURIComponent(id),
+                'DELETE'
+            );
+
             alert(hasil.message || 'Hari libur berhasil dihapus.');
             window.location.reload();
+
         } catch (error) {
             alert(error.message);
         }
@@ -773,22 +910,31 @@
     tbody.addEventListener('click', function (event) {
         const tombol = event.target.closest('button[data-action]');
         if (!tombol) return;
+
         const id = Number(tombol.dataset.id);
-        if (tombol.dataset.action === 'edit') editHariLibur(id);
-        if (tombol.dataset.action === 'hapus') hapusHariLibur(id);
+
+        if (tombol.dataset.action === 'edit') {
+            editHariLibur(id);
+        }
+
+        if (tombol.dataset.action === 'hapus') {
+            hapusHariLibur(id);
+        }
     });
 
     // ============================================================
     // EVENT FILTER DAN INISIALISASI
     // ============================================================
-    document.getElementById('searchLibur').addEventListener('input', tampilkanHariLibur);
-    document.getElementById('filterTahun').addEventListener('change', tampilkanHariLibur);
-    document.getElementById('filterJenis').addEventListener('change', tampilkanHariLibur);
-    document.getElementById('resetFilter').addEventListener('click', function () {
-        document.getElementById('searchLibur').value = '';
-        document.getElementById('filterTahun').value = '';
-        document.getElementById('filterJenis').value = '';
-        tampilkanHariLibur();
+
+    // Filter hanya dijalankan ketika tombol Cari Data diklik.
+    document.getElementById('cariData').addEventListener('click', cariDataHariLibur);
+
+    // Tekan Enter pada kolom pencarian juga menjalankan pencarian.
+    document.getElementById('searchLibur').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            cariDataHariLibur();
+        }
     });
 
     muatHariLibur();

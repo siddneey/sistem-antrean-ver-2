@@ -8,16 +8,20 @@ class KelompokSeeder extends Seeder
 {
     public function run()
     {
+        $now = date('Y-m-d H:i:s');
+
         $data = [
             [
                 'nama_kelompok' => 'Kelompok 1',
-                'created_at'    => date('Y-m-d H:i:s'),
-                'updated_at'    => date('Y-m-d H:i:s'),
+                'suara'         => 1,
+                'created_at'    => $now,
+                'updated_at'    => $now,
             ],
             [
                 'nama_kelompok' => 'Kelompok 2',
-                'created_at'    => date('Y-m-d H:i:s'),
-                'updated_at'    => date('Y-m-d H:i:s'),
+                'suara'         => 2,
+                'created_at'    => $now,
+                'updated_at'    => $now,
             ],
         ];
 

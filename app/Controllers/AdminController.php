@@ -7,17 +7,136 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use RuntimeException;
 
 class AdminController extends BaseController
 {
+    
     /**
-     * Dashboard admin.
+     * Dashboard khusus Admin.
      */
     public function dashboard()
     {
+        $db = \Config\Database::connect();
+
+        $tanggalHariIni = date('Y-m-d');
+        $tanggalInput = $this->request->getGet('tanggal');
+
+        // Validasi tanggal yang dipilih.
+        $tanggalDipilih = $this->validasiTanggal($tanggalInput)
+            ? $tanggalInput
+            : $tanggalHariIni;
+
+        // Rekap jumlah layanan yang selesai berdasarkan tanggal antrean.
+        // LEFT JOIN memastikan semua instansi tetap muncul,
+        // meskipun belum memiliki antrean pada tanggal tersebut.
+        $sql = "
+            SELECT
+                i.id,
+                i.nama_instansi,
+                i.logo,
+                i.status,
+                COALESCE(rekap.total_selesai, 0) AS total_selesai
+            FROM instansi i
+            LEFT JOIN (
+                SELECT
+                    rl.instansi_id,
+                    COUNT(rl.id) AS total_selesai
+                FROM riwayat_layanan rl
+                INNER JOIN antrean a
+                    ON a.id = rl.antrean_id
+                WHERE a.tanggal_antrean = ?
+                AND rl.status_layanan = 'SELESAI'
+                GROUP BY rl.instansi_id
+            ) rekap ON rekap.instansi_id = i.id
+            ORDER BY i.nama_instansi ASC
+        ";
+
+        $instansi = $db->query($sql, [$tanggalDipilih])
+            ->getResultArray();
+
+        $totalInstansi = count($instansi);
+        $totalAktif = 0;
+        $totalNonaktif = 0;
+        $totalSelesai = 0;
+
+        foreach ($instansi as $item) {
+            $status = strtolower(trim((string) ($item['status'] ?? 'aktif')));
+
+            if ($status === 'aktif') {
+                $totalAktif++;
+            } else {
+                $totalNonaktif++;
+            }
+
+            $totalSelesai += (int) $item['total_selesai'];
+        }
+
         return view('admin/dashboard', [
-            'activeMenu' => 'dashboard',
+            'activeMenu'     => 'dashboard',
+            'tanggalHariIni' => $tanggalHariIni,
+            'tanggalDipilih' => $tanggalDipilih,
+            'instansi'       => $instansi,
+            'totalInstansi'  => $totalInstansi,
+            'totalAktif'     => $totalAktif,
+            'totalNonaktif'  => $totalNonaktif,
+            'totalSelesai'   => $totalSelesai,
+        ]);
+    }
+
+    /**
+     * Simpan status aktual instansi.
+     * Hanya menerima request POST dari Admin.
+     */
+    public function updateStatusInstansi($id)
+    {
+        if (! $this->request->isAJAX()) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Request tidak valid.',
+            ]);
+        }
+
+        $status = $this->request->getPost('status');
+
+        if (! in_array($status, ['Aktif', 'Nonaktif'], true)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'Status tidak valid.',
+                'status'   => $status,
+                'csrfHash' => csrf_hash(),
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('instansi');
+
+        $instansi = $builder->where('id', (int) $id)->get()->getRowArray();
+
+        if (! $instansi) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'Instansi tidak ditemukan.',
+            ]);
+        }
+
+        $berhasil = $db->table('instansi')
+            ->where('id', (int) $id)
+            ->update(['status' => $status]);
+
+        if (! $berhasil) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Status gagal disimpan.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Status instansi berhasil diperbarui.',
+            'status'  => $status,
+            'csrfHash' => csrf_hash(),
         ]);
     }
 
@@ -54,7 +173,7 @@ class AdminController extends BaseController
             ? strtolower(trim($statusInput))
             : '';
 
-        if (!in_array($status, ['', 'menunggu', 'proses', 'selesai'], true)) {
+        if (!in_array($status, ['', 'menunggu', 'dilayani', 'pending', 'selesai'], true)) {
             $status = '';
         }
 
@@ -159,10 +278,15 @@ class AdminController extends BaseController
                 'rl.status_layanan',
                 'MENUNGGU'
             );
-        } elseif ($filter['filterStatus'] === 'proses') {
+        } elseif ($filter['filterStatus'] === 'dilayani') {
             $builder->whereIn(
                 'rl.status_layanan',
-                ['DIPANGGIL', 'DILAYANI', 'PENDING']
+                ['DIPANGGIL', 'DILAYANI']
+            );
+        } elseif ($filter['filterStatus'] === 'pending') {
+            $builder->where(
+                'rl.status_layanan',
+                'PENDING'
             );
         } elseif ($filter['filterStatus'] === 'selesai') {
             $builder->where(
@@ -419,368 +543,998 @@ class AdminController extends BaseController
         )->setFileName($namaFile);
     }
 
-        /**
-         * Halaman laporan ringkasan antrean.
-         */
-        public function laporanRingkasanAntrean()
-        {
-            $db = \Config\Database::connect();
+    /**
+     * Halaman ringkasan laporan antrean.
+     */
+    public function laporanRingkasanAntrean()
+    {
+        $filter = $this->getFilterLaporan();
+        $db = \Config\Database::connect();
 
-            // Filter tanggal
-            $tanggalHariIni = date('Y-m-d');
+        $builder = $db->table('riwayat_layanan rl');
 
-            $tanggalMulai = $this->request->getGet('tanggal_mulai')
-                ?: $tanggalHariIni;
+        $builder->select([
+            'i.id AS instansi_id',
+            'i.nama_instansi',
+            'l.nama_layanan',
+            'COUNT(rl.id) AS total_riwayat',
+        ]);
 
-            $tanggalSelesai = $this->request->getGet('tanggal_selesai')
-                ?: $tanggalHariIni;
+        $builder->join(
+            'antrean a',
+            'a.id = rl.antrean_id',
+            'inner'
+        );
 
-            // Validasi tanggal
-            if (!$this->validasiTanggal($tanggalMulai)) {
-                $tanggalMulai = $tanggalHariIni;
-            }
+        $builder->join(
+            'instansi i',
+            'i.id = rl.instansi_id',
+            'inner'
+        );
 
-            if (!$this->validasiTanggal($tanggalSelesai)) {
-                $tanggalSelesai = $tanggalHariIni;
-            }
+        $builder->join(
+            'layanan l',
+            'l.id = rl.layanan_id',
+            'left'
+        );
 
-            if ($tanggalMulai > $tanggalSelesai) {
-                [$tanggalMulai, $tanggalSelesai] = [
-                    $tanggalSelesai,
-                    $tanggalMulai,
-                ];
-            }
+        $builder->where(
+            "UPPER(TRIM(rl.status_layanan)) = 'SELESAI'",
+            null,
+            false
+        );
+        $builder->where(
+            'a.tanggal_antrean >=',
+            $filter['tanggalMulai']
+        );
+        $builder->where(
+            'a.tanggal_antrean <=',
+            $filter['tanggalSelesai']
+        );
 
-            $filterInstansi = trim(
-                (string) $this->request->getGet('instansi')
-            );
-
-            // Daftar instansi untuk dropdown filter
-            $daftarInstansi = $db->table('instansi')
-                ->select('id, nama_instansi')
-                ->orderBy('nama_instansi', 'ASC')
-                ->get()
-                ->getResultArray();
-
-            // Ringkasan jumlah layanan selesai per instansi dan layanan
-            $builder = $db->table('riwayat_layanan rl');
-
-            $builder->select([
-                'i.id AS instansi_id',
-                'i.nama_instansi',
-                'l.id AS layanan_id',
-                'l.nama_layanan',
-                'COUNT(rl.id) AS jumlah_antrean',
-            ]);
-
-            $builder->join(
-                'instansi i',
-                'i.id = rl.instansi_id'
-            );
-
-            $builder->join(
-                'layanan l',
-                'l.id = rl.layanan_id',
-                'left'
-            );
-
-            $builder->where('rl.status_layanan', 'SELESAI');
-
-            // Filter berdasarkan tanggal tiket antrean
-            $builder->join(
-                'antrean a',
-                'a.id = rl.antrean_id'
-            );
-
+        if ($filter['filterInstansi'] !== '') {
             $builder->where(
-                'a.tanggal_antrean >=',
-                $tanggalMulai
-            );
-
-            $builder->where(
-                'a.tanggal_antrean <=',
-                $tanggalSelesai
-            );
-
-            if ($filterInstansi !== '') {
-                $builder->where(
-                    'i.id',
-                    (int) $filterInstansi
-                );
-            }
-
-            $builder->groupBy([
                 'i.id',
-                'i.nama_instansi',
-                'l.id',
-                'l.nama_layanan',
-            ]);
-
-            $builder->orderBy('i.nama_instansi', 'ASC');
-            $builder->orderBy('l.nama_layanan', 'ASC');
-
-            $ringkasan = $builder->get()->getResultArray();
-
-            // Total seluruh baris layanan pada hasil filter
-            $totalAntrean = array_sum(
-                array_map(
-                    static fn ($row) => (int) $row['jumlah_antrean'],
-                    $ringkasan
-                )
+                $filter['filterInstansi']
             );
-
-            return view('admin/laporan_ringkasan_antrean', [
-                'activeMenu'     => 'laporan-ringkasan-antrean',
-                'tanggalMulai'   => $tanggalMulai,
-                'tanggalSelesai' => $tanggalSelesai,
-                'filterInstansi' => $filterInstansi,
-                'daftarInstansi' => $daftarInstansi,
-                'ringkasan'      => $ringkasan,
-                'totalAntrean'   => $totalAntrean,
-            ]);
         }
 
+        $builder->groupBy([
+            'i.id',
+            'i.nama_instansi',
+            'l.nama_layanan',
+        ]);
 
-        /**
-         * Ekspor ringkasan laporan antrean ke Excel.
-         */
-        public function exportLaporanRingkasanAntrean()
-        {
-            $filter = $this->getFilterLaporan();
+        $builder->orderBy('i.nama_instansi', 'ASC');
+        $builder->orderBy('l.nama_layanan', 'ASC');
 
-            $db = \Config\Database::connect();
+        $ringkasan = $builder->get()->getResultArray();
 
-            $builder = $db->table('riwayat_layanan rl');
+        $daftarInstansi = $db->table('instansi')
+            ->select('id, nama_instansi')
+            ->orderBy('nama_instansi', 'ASC')
+            ->get()
+            ->getResultArray();
 
-            $builder->select([
-                'i.id AS instansi_id',
-                'i.nama_instansi',
-                'l.nama_layanan',
-                'COUNT(rl.id) AS total_antrean',
-            ]);
+        return view('admin/laporan_ringkasan_antrean', array_merge(
+            $filter,
+            [
+                'activeMenu'     => 'laporan-ringkasan-antrean',
+                'ringkasan'      => $ringkasan,
+                'daftarInstansi' => $daftarInstansi,
+            ]
+        ));
+    }
 
-            $builder->join('antrean a', 'a.id = rl.antrean_id');
-            $builder->join('instansi i', 'i.id = a.instansi_id');
-            $builder->join('layanan l', 'l.id = rl.layanan_id');
+    /**
+     * Ekspor ringkasan laporan ringkasan antrean ke Excel.
+     */
+    public function exportLaporanRingkasanAntrean()
+    {
+        $filter = $this->getFilterLaporan();
 
-            $builder->where('rl.status_layanan', 'SELESAI');
-            $builder->where('a.tanggal_antrean >=', $filter['tanggalMulai']);
-            $builder->where('a.tanggal_antrean <=', $filter['tanggalSelesai']);
+        $tanggalMulai   = $filter['tanggalMulai'];
+        $tanggalSelesai = $filter['tanggalSelesai'];
+        $filterInstansi = $filter['filterInstansi'];
 
-            if ($filter['filterInstansi'] !== '') {
-                $builder->where('i.id', $filter['filterInstansi']);
-            }
+        $db = \Config\Database::connect();
 
-            $builder->groupBy([
-                'i.id',
-                'i.nama_instansi',
-                'l.nama_layanan',
-            ]);
+        $builder = $db->table('riwayat_layanan rl');
 
-            $builder->orderBy('i.nama_instansi', 'ASC');
-            $builder->orderBy('l.nama_layanan', 'ASC');
+        $builder->select([
+            'i.id AS instansi_id',
+            'i.nama_instansi',
+            'l.nama_layanan',
+            'COUNT(rl.id) AS total_riwayat',
+        ]);
 
-            $ringkasan = $builder->get()->getResultArray();
+        $builder->join(
+            'antrean a',
+            'a.id = rl.antrean_id',
+            'inner'
+        );
 
-            $spreadsheet = new Spreadsheet();
-            $sheet = $spreadsheet->getActiveSheet();
-            $sheet->setTitle('Ringkasan Antrean');
+        // Instansi yang tercatat pada riwayat layanan.
+        $builder->join(
+            'instansi i',
+            'i.id = rl.instansi_id',
+            'inner'
+        );
 
-            // Judul laporan.
-            $sheet->setCellValue('A1', 'RINGKASAN LAPORAN ANTREAN');
-            $sheet->mergeCells('A1:D1');
+        $builder->join(
+            'layanan l',
+            'l.id = rl.layanan_id',
+            'left'
+        );
 
-            $sheet->getStyle('A1:D1')->applyFromArray([
-                'font' => [
-                    'bold'  => true,
-                    'size'  => 16,
-                    'color' => ['rgb' => 'FFFFFF'],
-                ],
-                'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '1F4E78'],
-                ],
-                'alignment' => [
-                    'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
-                ],
-            ]);
+        $builder->where(
+            "UPPER(TRIM(rl.status_layanan)) = 'SELESAI'",
+            null,
+            false
+        );
 
-            $sheet->getRowDimension(1)->setRowHeight(28);
+        $builder->where(
+            'a.tanggal_antrean >=',
+            $tanggalMulai
+        );
 
-            // Informasi filter.
-            $sheet->setCellValue('A2', 'Periode');
-            $sheet->setCellValue(
-                'B2',
-                $filter['tanggalMulai'] . ' s.d. ' . $filter['tanggalSelesai']
+        $builder->where(
+            'a.tanggal_antrean <=',
+            $tanggalSelesai
+        );
+
+        if ($filterInstansi !== '' && $filterInstansi !== null) {
+            $builder->where(
+                'rl.instansi_id',
+                $filterInstansi
             );
+        }
 
-            $sheet->setCellValue('A3', 'Instansi');
-            $sheet->setCellValue(
-                'B3',
-                $filter['filterInstansi'] !== ''
-                    ? $filter['filterInstansi']
-                    : 'Semua'
-            );
+        $builder->groupBy([
+            'i.id',
+            'i.nama_instansi',
+            'l.nama_layanan',
+        ]);
 
-            // Header tabel.
-            $headers = [
-                'No.',
-                'Instansi',
-                'Layanan',
-                'Total Antrean Selesai',
-            ];
+        $builder->orderBy('i.nama_instansi', 'ASC');
+        $builder->orderBy('l.nama_layanan', 'ASC');
 
-            $sheet->fromArray($headers, null, 'A5');
+        $ringkasan = $builder->get()->getResultArray();
 
-            $sheet->getStyle('A5:D5')->applyFromArray([
-                'font' => [
-                    'bold'  => true,
-                    'color' => ['rgb' => 'FFFFFF'],
-                ],
-                'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '4472C4'],
-                ],
-                'alignment' => [
-                    'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    'vertical'   => Alignment::VERTICAL_CENTER,
-                    'wrapText'   => true,
-                ],
-            ]);
+        /*
+        |--------------------------------------------------------------------------
+        | Buat file Excel
+        |--------------------------------------------------------------------------
+        */
 
-            $sheet->getRowDimension(5)->setRowHeight(30);
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
 
-            $baris = 6;
-            $totalAntrean = 0;
+        $sheet->setTitle('Ringkasan Antrean');
 
-            foreach ($ringkasan as $index => $row) {
-                $jumlah = (int) ($row['total_antrean'] ?? 0);
-                $totalAntrean += $jumlah;
+        // Judul.
+        $sheet->setCellValue('A1', 'RINGKASAN LAPORAN ANTREAN');
+        $sheet->mergeCells('A1:D1');
 
-                $sheet->fromArray([
-                    $index + 1,
-                    $row['nama_instansi'] ?? '',
-                    $row['nama_layanan'] ?? '',
-                    $jumlah,
-                ], null, 'A' . $baris);
+        $sheet->getStyle('A1:D1')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'size'  => 16,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '1F4E78'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
 
-                $baris++;
-            }
+        $sheet->getRowDimension(1)->setRowHeight(28);
 
-            // Baris total.
-            $sheet->setCellValue('A' . $baris, 'TOTAL');
-            $sheet->mergeCells('A' . $baris . ':C' . $baris);
-            $sheet->setCellValue('D' . $baris, $totalAntrean);
+        // Informasi periode.
+        $sheet->setCellValue('A2', 'Periode');
+        $sheet->setCellValue(
+            'B2',
+            $tanggalMulai . ' s.d. ' . $tanggalSelesai
+        );
 
-            $sheet->getStyle('A' . $baris . ':D' . $baris)->applyFromArray([
-                'font' => ['bold' => true],
-                'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'D9EAF7'],
-                ],
-            ]);
+        // Nama instansi untuk informasi filter.
+        $namaInstansiFilter = 'Semua';
 
-            $barisTerakhir = max(5, $baris);
+        if ($filterInstansi !== '' && $filterInstansi !== null) {
+            $instansi = $db->table('instansi')
+                ->select('nama_instansi')
+                ->where('id', $filterInstansi)
+                ->get()
+                ->getRowArray();
 
-            $sheet->getStyle('A5:D' . $barisTerakhir)
-                ->getBorders()
-                ->getAllBorders()
-                ->setBorderStyle(Border::BORDER_THIN);
+            $namaInstansiFilter = $instansi['nama_instansi'] ?? 'Tidak ditemukan';
+        }
 
-            $sheet->getStyle('A5:D' . $barisTerakhir)
-                ->getAlignment()
-                ->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->setCellValue('A3', 'Instansi');
+        $sheet->setCellValue('B3', $namaInstansiFilter);
 
-            $sheet->getStyle('A5:A' . $barisTerakhir)
+        // Header tabel.
+        $headers = [
+            'No.',
+            'Instansi',
+            'Layanan',
+            'Jumlah Riwayat Layanan',
+        ];
+
+        $sheet->fromArray($headers, null, 'A5');
+
+        $sheet->getStyle('A5:D5')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '4472C4'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+            ],
+        ]);
+
+        $sheet->getRowDimension(5)->setRowHeight(30);
+
+        // Isi tabel.
+        $baris = 6;
+        $totalRiwayat = 0;
+
+        foreach ($ringkasan as $index => $row) {
+            $jumlah = (int) ($row['total_riwayat'] ?? 0);
+            $totalRiwayat += $jumlah;
+
+            $sheet->fromArray([
+                $index + 1,
+                $row['nama_instansi'] ?? '',
+                $row['nama_layanan'] ?? 'Tidak ada layanan',
+                $jumlah,
+            ], null, 'A' . $baris);
+
+            $baris++;
+        }
+
+        // Jika tidak ada data, beri informasi pada tabel.
+        if (empty($ringkasan)) {
+            $sheet->mergeCells('A6:D6');
+            $sheet->setCellValue('A6', 'Tidak ada data pada periode yang dipilih.');
+
+            $sheet->getStyle('A6:D6')
                 ->getAlignment()
                 ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            $sheet->getStyle('D6:D' . $barisTerakhir)
-                ->getAlignment()
-                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $baris = 7;
+        }
 
-            foreach (range('A', 'D') as $kolom) {
-                $sheet->getColumnDimension($kolom)->setAutoSize(true);
-            }
+        // Baris total.
+        $sheet->setCellValue('A' . $baris, 'TOTAL');
+        $sheet->mergeCells('A' . $baris . ':C' . $baris);
+        $sheet->setCellValue('D' . $baris, $totalRiwayat);
 
-            $sheet->getColumnDimension('B')->setWidth(28);
-            $sheet->getColumnDimension('C')->setWidth(28);
-            $sheet->getColumnDimension('D')->setWidth(22);
+        $sheet->getStyle('A' . $baris . ':D' . $baris)->applyFromArray([
+            'font' => [
+                'bold' => true,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'D9EAF7'],
+            ],
+        ]);
 
-            $sheet->freezePane('A6');
-            $sheet->setAutoFilter('A5:D' . max(5, $baris - 1));
+        // Border dan perataan.
+        $barisTerakhir = $baris;
 
-            $namaFile = 'ringkasan-laporan-antrean-'
-                . $filter['tanggalMulai'] . '-'
-                . $filter['tanggalSelesai'] . '.xlsx';
+        $sheet->getStyle('A5:D' . $barisTerakhir)
+            ->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(Border::BORDER_THIN);
 
-            $tempFile = tempnam(sys_get_temp_dir(), 'ringkasan_antrean_');
+        $sheet->getStyle('A5:D' . $barisTerakhir)
+            ->getAlignment()
+            ->setVertical(Alignment::VERTICAL_CENTER);
 
-            if ($tempFile === false) {
-                $spreadsheet->disconnectWorksheets();
+        $sheet->getStyle('A5:A' . $barisTerakhir)
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
+        $sheet->getStyle('D6:D' . $barisTerakhir)
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // Lebar kolom.
+        $sheet->getColumnDimension('A')->setWidth(8);
+        $sheet->getColumnDimension('B')->setWidth(30);
+        $sheet->getColumnDimension('C')->setWidth(30);
+        $sheet->getColumnDimension('D')->setWidth(28);
+
+        $sheet->freezePane('A6');
+
+        if (!empty($ringkasan)) {
+            $sheet->setAutoFilter('A5:D' . ($baris - 1));
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Download Excel
+        |--------------------------------------------------------------------------
+        */
+
+        $namaFile = 'ringkasan-laporan-antrean-'
+            . $tanggalMulai . '-'
+            . $tanggalSelesai . '.xlsx';
+
+        try {
+            $writer = new Xlsx($spreadsheet);
+
+            ob_start();
+            $writer->save('php://output');
+            $isiFile = ob_get_clean();
+
+            if ($isiFile === false) {
                 throw new \RuntimeException(
-                    'Gagal membuat file sementara untuk ekspor Excel.'
+                    'Gagal membuat file Excel.'
                 );
             }
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
 
-            try {
-                $writer = new Xlsx($spreadsheet);
-                $writer->save($tempFile);
+        return $this->response
+            ->download($namaFile, $isiFile, true)
+            ->setFileName($namaFile);
+    }
 
-                $isiFile = file_get_contents($tempFile);
+    /**
+     * Halaman pengaturan layar.
+     */
+    public function pengaturanLayar()
+    {
+        return view('admin/pengaturan_layar', [
+            'activeMenu' => 'pengaturan-layar',
+        ]);
+    }
 
-                if ($isiFile === false) {
-                    throw new \RuntimeException(
-                        'Gagal membaca file Excel yang dibuat.'
-                    );
-                }
-            } finally {
-                if (is_file($tempFile)) {
-                    unlink($tempFile);
-                }
+    /**
+     * Halaman log user login.
+     */
+    public function logUserLogin()
+    {
+        return view('admin/log_user_login', [
+            'activeMenu' => 'log-user-login',
+        ]);
+    }
 
-                $spreadsheet->disconnectWorksheets();
+    /**
+     * ============================================================
+     * DATA ABSENSI PETUGAS
+     * ============================================================
+     *
+     * Absensi dihitung berdasarkan aktivitas pada log_user_login:
+     *
+     * - Login Berhasil pertama = jam masuk.
+     * - Logout terakhir = jam pulang.
+     * - Petugas yang memiliki Login Berhasil = Hadir.
+     * - Petugas tanpa Login Berhasil = Tidak Hadir.
+     *
+     * Hanya user dengan role_id = 2 yang ditampilkan.
+     */
+    private function getDataAbsensiPetugas(array $filter): array
+    {
+        $db = \Config\Database::connect();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ambil seluruh petugas
+        |--------------------------------------------------------------------------
+        */
+
+        $builderPetugas = $db->table('users u');
+
+        $builderPetugas->select([
+            'u.id',
+            'u.username',
+            'u.instansi_id',
+            'i.nama_instansi',
+        ]);
+
+        $builderPetugas->join(
+            'instansi i',
+            'i.id = u.instansi_id',
+            'left'
+        );
+
+        $builderPetugas->where('u.role_id', 2);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filter instansi
+        |--------------------------------------------------------------------------
+        */
+
+        if ($filter['instansi_id'] !== '') {
+            $builderPetugas->where(
+                'u.instansi_id',
+                (int) $filter['instansi_id']
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filter username petugas
+        |--------------------------------------------------------------------------
+        */
+
+        if ($filter['keyword'] !== '') {
+            $builderPetugas->like(
+                'u.username',
+                $filter['keyword']
+            );
+        }
+
+        $petugas = $builderPetugas
+            ->orderBy('u.username', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ambil log login pertama
+        |--------------------------------------------------------------------------
+        */
+
+        $tanggal = $filter['tanggal'];
+
+        $loginPertama = $db->table('log_user_login')
+            ->select([
+                'user_id',
+                'MIN(waktu) AS waktu_login',
+            ])
+            ->where('aktivitas', 'Login Berhasil')
+            ->where('waktu >=', $tanggal . ' 00:00:00')
+            ->where('waktu <=', $tanggal . ' 23:59:59')
+            ->groupBy('user_id')
+            ->get()
+            ->getResultArray();
+
+        $loginMap = [];
+
+        foreach ($loginPertama as $login) {
+            $loginMap[(int) $login['user_id']] =
+                $login['waktu_login'];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ambil log logout terakhir
+        |--------------------------------------------------------------------------
+        */
+
+        $logoutTerakhir = $db->table('log_user_login')
+            ->select([
+                'user_id',
+                'MAX(waktu) AS waktu_logout',
+            ])
+            ->where('aktivitas', 'Logout')
+            ->where('waktu >=', $tanggal . ' 00:00:00')
+            ->where('waktu <=', $tanggal . ' 23:59:59')
+            ->groupBy('user_id')
+            ->get()
+            ->getResultArray();
+
+        $logoutMap = [];
+
+        foreach ($logoutTerakhir as $logout) {
+            $logoutMap[(int) $logout['user_id']] =
+                $logout['waktu_logout'];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Susun data absensi
+        |--------------------------------------------------------------------------
+        */
+
+        $data = [];
+
+        foreach ($petugas as $item) {
+            $userId = (int) $item['id'];
+
+            $waktuLogin = $loginMap[$userId] ?? null;
+            $waktuLogout = $logoutMap[$userId] ?? null;
+
+            $hadir = $waktuLogin !== null;
+
+            $data[] = [
+                'id'        => $userId,
+                'username'  => (string) ($item['username'] ?? '-'),
+                'instansi'  => (string) (
+                    $item['nama_instansi'] ?? 'Belum memiliki instansi'
+                ),
+                'tanggal'   => $tanggal,
+                'jam_masuk' => $waktuLogin
+                    ? date('H:i:s', strtotime($waktuLogin))
+                    : '-',
+                'jam_pulang' => $waktuLogout
+                    ? date('H:i:s', strtotime($waktuLogout))
+                    : '-',
+                'status' => $hadir
+                    ? 'Hadir'
+                    : 'Tidak Hadir',
+                'keterangan' => $hadir
+                    ? 'Tercatat login pada tanggal absensi.'
+                    : 'Tidak ada aktivitas login pada tanggal absensi.',
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filter status
+        |--------------------------------------------------------------------------
+        */
+
+        if ($filter['status'] !== '') {
+            $data = array_values(
+                array_filter(
+                    $data,
+                    static fn ($item) =>
+                        $item['status'] === $filter['status']
+                )
+            );
+        }
+
+        return $data;
+    }
+
+
+    /**
+     * ============================================================
+     * HALAMAN ABSENSI PETUGAS
+     * ============================================================
+     */
+    public function absensiPetugas()
+    {
+        $tanggalInput = $this->request->getGet('tanggal');
+
+        $tanggal = $this->validasiTanggal($tanggalInput)
+            ? $tanggalInput
+            : date('Y-m-d');
+
+        $keyword = trim(
+            (string) $this->request->getGet('keyword')
+        );
+
+        $instansiId = trim(
+            (string) $this->request->getGet('instansi')
+        );
+
+        $status = trim(
+            (string) $this->request->getGet('status')
+        );
+
+        if (!in_array(
+            $status,
+            ['', 'Hadir', 'Tidak Hadir'],
+            true
+        )) {
+            $status = '';
+        }
+
+        $filter = [
+            'tanggal'     => $tanggal,
+            'keyword'     => $keyword,
+            'instansi_id' => $instansiId,
+            'status'      => $status,
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Data absensi
+        |--------------------------------------------------------------------------
+        */
+
+        $absensi = $this->getDataAbsensiPetugas(
+            $filter
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Summary
+        |--------------------------------------------------------------------------
+        */
+
+        $totalHadir = count(
+            array_filter(
+                $absensi,
+                static fn ($item) =>
+                    $item['status'] === 'Hadir'
+            )
+        );
+
+        $totalTidakHadir = count(
+            array_filter(
+                $absensi,
+                static fn ($item) =>
+                    $item['status'] === 'Tidak Hadir'
+            )
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Daftar instansi untuk filter
+        |--------------------------------------------------------------------------
+        */
+
+        $db = \Config\Database::connect();
+
+        $daftarInstansi = $db->table('instansi')
+            ->select([
+                'id',
+                'nama_instansi',
+            ])
+            ->orderBy('nama_instansi', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return view('admin/absensi_petugas', [
+            'activeMenu'       => 'absensi-petugas',
+            'absensi'          => $absensi,
+            'totalHadir'       => $totalHadir,
+            'totalTidakHadir'  => $totalTidakHadir,
+            'daftarInstansi'   => $daftarInstansi,
+            'filterTanggal'    => $tanggal,
+            'filterKeyword'    => $keyword,
+            'filterInstansi'   => $instansiId,
+            'filterStatus'     => $status,
+        ]);
+    }
+
+
+    /**
+     * ============================================================
+     * EKSPOR ABSENSI PETUGAS KE EXCEL
+     * ============================================================
+     */
+    public function exportAbsensiPetugas()
+    {
+        $tanggalInput = $this->request->getGet('tanggal');
+
+        $tanggal = $this->validasiTanggal($tanggalInput)
+            ? $tanggalInput
+            : date('Y-m-d');
+
+        $keyword = trim(
+            (string) $this->request->getGet('keyword')
+        );
+
+        $instansiId = trim(
+            (string) $this->request->getGet('instansi')
+        );
+
+        $status = trim(
+            (string) $this->request->getGet('status')
+        );
+
+        if (!in_array(
+            $status,
+            ['', 'Hadir', 'Tidak Hadir'],
+            true
+        )) {
+            $status = '';
+        }
+
+        $filter = [
+            'tanggal'     => $tanggal,
+            'keyword'     => $keyword,
+            'instansi_id' => $instansiId,
+            'status'      => $status,
+        ];
+
+        $absensi = $this->getDataAbsensiPetugas(
+            $filter
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Buat Spreadsheet
+        |--------------------------------------------------------------------------
+        */
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setTitle('Absensi Petugas');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Judul
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->setCellValue(
+            'A1',
+            'LAPORAN ABSENSI PETUGAS'
+        );
+
+        $sheet->mergeCells('A1:H1');
+
+        $sheet->getStyle('A1:H1')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'size'  => 16,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '198754'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+
+        $sheet->getRowDimension(1)
+            ->setRowHeight(28);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Informasi filter
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->setCellValue(
+            'A2',
+            'Tanggal Absensi'
+        );
+
+        $sheet->setCellValue(
+            'B2',
+            date(
+                'd-m-Y',
+                strtotime($tanggal)
+            )
+        );
+
+        $sheet->setCellValue(
+            'D2',
+            'Status'
+        );
+
+        $sheet->setCellValue(
+            'E2',
+            $status !== ''
+                ? $status
+                : 'Semua'
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Header tabel
+        |--------------------------------------------------------------------------
+        */
+
+        $headers = [
+            'No.',
+            'Username Petugas',
+            'Instansi',
+            'Tanggal',
+            'Jam Masuk',
+            'Jam Pulang',
+            'Status Kehadiran',
+            'Keterangan',
+        ];
+
+        $sheet->fromArray(
+            $headers,
+            null,
+            'A4'
+        );
+
+        $sheet->getStyle('A4:H4')->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '198754'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+            ],
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Isi tabel
+        |--------------------------------------------------------------------------
+        */
+
+        $baris = 5;
+
+        foreach ($absensi as $index => $item) {
+            $sheet->fromArray([
+                $index + 1,
+                $item['username'],
+                $item['instansi'],
+                date(
+                    'd-m-Y',
+                    strtotime($item['tanggal'])
+                ),
+                $item['jam_masuk'],
+                $item['jam_pulang'],
+                $item['status'],
+                $item['keterangan'],
+            ], null, 'A' . $baris);
+
+            $baris++;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Jika data kosong
+        |--------------------------------------------------------------------------
+        */
+
+        if (empty($absensi)) {
+            $sheet->mergeCells('A5:H5');
+
+            $sheet->setCellValue(
+                'A5',
+                'Tidak ada data absensi.'
+            );
+
+            $sheet->getStyle('A5:H5')
+                ->getAlignment()
+                ->setHorizontal(
+                    Alignment::HORIZONTAL_CENTER
+                );
+
+            $baris = 6;
+        }
+
+        $barisTerakhir = $baris - 1;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Style tabel
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getStyle(
+            'A4:H' . $barisTerakhir
+        )
+            ->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(
+                Border::BORDER_THIN
+            );
+
+        $sheet->getStyle(
+            'A4:H' . $barisTerakhir
+        )
+            ->getAlignment()
+            ->setVertical(
+                Alignment::VERTICAL_CENTER
+            );
+
+        $sheet->getStyle(
+            'A5:A' . $barisTerakhir
+        )
+            ->getAlignment()
+            ->setHorizontal(
+                Alignment::HORIZONTAL_CENTER
+            );
+
+        $sheet->getStyle(
+            'D5:G' . $barisTerakhir
+        )
+            ->getAlignment()
+            ->setHorizontal(
+                Alignment::HORIZONTAL_CENTER
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lebar kolom
+        |--------------------------------------------------------------------------
+        */
+
+        $sheet->getColumnDimension('A')
+            ->setWidth(8);
+
+        $sheet->getColumnDimension('B')
+            ->setWidth(24);
+
+        $sheet->getColumnDimension('C')
+            ->setWidth(30);
+
+        $sheet->getColumnDimension('D')
+            ->setWidth(15);
+
+        $sheet->getColumnDimension('E')
+            ->setWidth(15);
+
+        $sheet->getColumnDimension('F')
+            ->setWidth(15);
+
+        $sheet->getColumnDimension('G')
+            ->setWidth(20);
+
+        $sheet->getColumnDimension('H')
+            ->setWidth(40);
+
+        $sheet->freezePane('A5');
+
+        if (!empty($absensi)) {
+            $sheet->setAutoFilter(
+                'A4:H' . $barisTerakhir
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Download Excel
+        |--------------------------------------------------------------------------
+        */
+
+        $namaFile = 'absensi-petugas-'
+            . $tanggal
+            . '.xlsx';
+
+        $tempFile = tempnam(
+            sys_get_temp_dir(),
+            'absensi_petugas_'
+        );
+
+        if ($tempFile === false) {
+            $spreadsheet->disconnectWorksheets();
+
+            throw new RuntimeException(
+                'Gagal membuat file sementara.'
+            );
+        }
+
+        try {
+            $writer = new Xlsx($spreadsheet);
+
+            $writer->save($tempFile);
+
+            $isiFile = file_get_contents(
+                $tempFile
+            );
+
+            if ($isiFile === false) {
+                throw new RuntimeException(
+                    'Gagal membaca file Excel.'
+                );
+            }
+        } finally {
+            if (is_file($tempFile)) {
+                unlink($tempFile);
             }
 
-            return $this->response->download(
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        return $this->response
+            ->download(
                 $namaFile,
                 $isiFile,
                 true
-            )->setFileName($namaFile);
-        }
-
-
-        
-        /**
-         * Halaman pengaturan layar.
-         */
-        public function pengaturanLayar()
-        {
-            return view('admin/pengaturan_layar', [
-                'activeMenu' => 'pengaturan-layar',
-            ]);
-        }
-
-        /**
-         * Halaman log user login.
-         */
-        public function logUserLogin()
-        {
-            return view('admin/log_user_login', [
-                'activeMenu' => 'log-user-login',
-            ]);
-        }
-
-        /**
-         * Halaman absensi petugas.
-         */
-        public function absensiPetugas()
-        {
-            return view('admin/absensi_petugas', [
-                'activeMenu' => 'absensi-petugas',
-            ]);
-        }
+            )
+            ->setFileName($namaFile);
+    }
 
 }
