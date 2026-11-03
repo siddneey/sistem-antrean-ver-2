@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use Throwable;
+
 class PetugasController extends BaseController
 {
     private function instansiPetugas(): ?int
@@ -9,227 +11,214 @@ class PetugasController extends BaseController
         if ((int) session()->get('role_id') !== 2) {
             return null;
         }
+        $id = (int) session()->get('instansi_id');
+        return $id > 0 ? $id : null;
+    }
 
-        $instansiId = (int) session()->get('instansi_id');
-
-        return $instansiId > 0 ? $instansiId : null;
+    private function tolak()
+    {
+        return $this->response->setStatusCode(403)->setJSON([
+            'status' => false,
+            'message' => 'Akses ditolak.',
+        ]);
     }
 
     public function dashboard()
     {
         $instansiId = $this->instansiPetugas();
-
         if ($instansiId === null) {
             return redirect()->to(site_url('login'));
         }
+        $instansi = db_connect()->table('instansi')
+            ->select('nama_instansi')
+            ->where('id', $instansiId)
+            ->get()
+            ->getRowArray();
 
         return view('petugas/index', [
-            'username'   => session()->get('username'),
-            'instansiId' => $instansiId,
+            'username'     => session()->get('username'),
+            'instansiId'   => $instansiId,
+            'namaInstansi' => $instansi['nama_instansi'] ?? 'Instansi tidak ditemukan',
         ]);
     }
 
     public function dataDashboard()
     {
         $instansiId = $this->instansiPetugas();
-
         if ($instansiId === null) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'status'  => false,
-                'message' => 'Akses ditolak.',
-            ]);
+            return $this->tolak();
         }
-
-        $db = \Config\Database::connect();
-
-        $data = $db->table('riwayat_layanan rl')
-            ->select(
-                'rl.id AS riwayat_id,
-                 a.nomor_antrean,
-                 a.jenis_antrean,
-                 rl.status_layanan,
-                 rl.waktu_masuk,
-                 rl.waktu_mulai,
-                 rl.waktu_selesai,
-                 l.nama_layanan'
-            )
+        $db = db_connect();
+        $rows = $db->table('riwayat_layanan rl')
+            ->select('rl.id AS riwayat_id, rl.petugas_id, a.nomor_antrean,
+                a.jenis_antrean, rl.status_layanan, rl.waktu_masuk,
+                rl.waktu_mulai, rl.waktu_selesai, l.nama_layanan')
             ->join('antrean a', 'a.id = rl.antrean_id')
             ->join('layanan l', 'l.id = rl.layanan_id', 'left')
             ->where('rl.instansi_id', $instansiId)
             ->where('a.tanggal_antrean', date('Y-m-d'))
             ->orderBy('rl.waktu_masuk', 'ASC')
-            ->orderBy('rl.id', 'ASC')
-            ->get()
-            ->getResultArray();
+            ->orderBy('rl.id', 'ASC')->get()->getResultArray();
 
         $aktif = null;
         $menunggu = [];
         $riwayat = [];
-        $jumlahSelesai = 0;
-
-        foreach ($data as $item) {
-            $status = $item['status_layanan'];
-
+        $selesai = 0;
+        $petugasId = (int) session()->get('user_id');
+        foreach ($rows as $row) {
+            $status = $row['status_layanan'];
             if (in_array($status, ['DIPANGGIL', 'DILAYANI'], true)) {
-                if ($aktif === null) {
-                    $aktif = $item;
+                if ((int) $row['petugas_id'] === $petugasId && $aktif === null) {
+                    $aktif = $row;
                 }
             } elseif ($status === 'MENUNGGU') {
-                $menunggu[] = $item;
+                $menunggu[] = $row;
             } elseif (in_array($status, ['SELESAI', 'PENDING'], true)) {
-                $riwayat[] = $item;
-
+                $riwayat[] = $row;
                 if ($status === 'SELESAI') {
-                    $jumlahSelesai++;
+                    $selesai++;
                 }
             }
         }
-
+        usort($menunggu, static function (array $a, array $b): int {
+            $pa = $a['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
+            $pb = $b['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
+            return ($pa <=> $pb)
+                ?: strcmp((string) $a['waktu_masuk'], (string) $b['waktu_masuk'])
+                ?: ((int) $a['riwayat_id'] <=> (int) $b['riwayat_id']);
+        });
         return $this->response->setJSON([
             'status' => true,
             'data' => [
-                'aktif'           => $aktif,
-                'menunggu'        => $menunggu,
+                'aktif' => $aktif,
+                'menunggu' => $menunggu,
                 'jumlah_menunggu' => count($menunggu),
-                'jumlah_selesai'  => $jumlahSelesai,
-                'riwayat'         => array_reverse($riwayat),
+                'jumlah_selesai' => $selesai,
+                'riwayat' => array_reverse($riwayat),
             ],
         ]);
     }
 
+    public function pilihan()
+    {
+        $instansiId = $this->instansiPetugas();
+        if ($instansiId === null) {
+            return $this->tolak();
+        }
+        $db = db_connect();
+        return $this->response->setJSON([
+            'status' => true,
+            'data' => [
+                'layanan' => $db->table('layanan')
+                    ->select('id, nama_layanan')->where('instansi_id', $instansiId)
+                    ->orderBy('nama_layanan', 'ASC')->get()->getResultArray(),
+                'instansi' => $db->table('instansi')
+                    ->select('id, nama_instansi')->where('id !=', $instansiId)
+                    ->orderBy('nama_instansi', 'ASC')->get()->getResultArray(),
+            ],
+        ]);
+    }
+
+    /** GET pengaturan aktif petugas. Pengaturan booking mengikuti entri terbaru. */
     public function pengaturanLoket()
     {
         $instansiId = $this->instansiPetugas();
-
         if ($instansiId === null) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'status'  => false,
-                'message' => 'Akses ditolak.',
-            ]);
+            return $this->tolak();
         }
 
-        $db = \Config\Database::connect();
+        try {
+            $row = db_connect()->table('kuota_instansi')
+                ->select('kuota_layanan, kuota_booking, status_loket, tanggal')
+                ->where('instansi_id', $instansiId)
+                ->where('tanggal <=', date('Y-m-d'))
+                ->orderBy('tanggal', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
 
-        $pengaturan = $db->table('kuota_instansi')
-            ->where('instansi_id', $instansiId)
-            ->where('tanggal', date('Y-m-d'))
-            ->get()
-            ->getRowArray();
-
-        return $this->response->setJSON([
-            'status' => true,
-            'data' => [
-                'kuota_layanan' => (int) ($pengaturan['kuota_layanan'] ?? 50),
-                'kuota_booking' => (int) ($pengaturan['kuota_booking'] ?? 30),
-                'status_loket'  => $pengaturan['status_loket'] ?? 'BUKA',
-            ],
-        ]);
+            return $this->response->setJSON([
+                'status' => true,
+                'data' => [
+                    'kuota_layanan' => (int) ($row['kuota_layanan'] ?? 50),
+                    'kuota_booking' => (int) ($row['kuota_booking'] ?? 30),
+                    'status_loket' => strtoupper((string) ($row['status_loket'] ?? 'BUKA')),
+                ],
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', '[PengaturanLoket GET] {message}', ['message' => $e->getMessage()]);
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal mengambil pengaturan loket.',
+            ]);
+        }
     }
 
+    /** POST pengaturan petugas: kedua kuota independen. */
     public function simpanPengaturanLoket()
     {
         $instansiId = $this->instansiPetugas();
-
         if ($instansiId === null) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'status'  => false,
-                'message' => 'Akses ditolak.',
-                'csrfHash' => csrf_hash(),
-            ]);
+            return $this->tolak();
         }
 
         $input = $this->request->getJSON(true);
-
         if (!is_array($input)) {
             return $this->response->setStatusCode(400)->setJSON([
-                'status'   => false,
-                'message'  => 'Format data tidak valid.',
+                'status' => false,
+                'message' => 'Request JSON tidak valid.',
                 'csrfHash' => csrf_hash(),
             ]);
         }
 
-        $layanan = filter_var(
-            $input['kuota_layanan'] ?? null,
-            FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 1]]
-        );
-
-        $booking = filter_var(
-            $input['kuota_booking'] ?? null,
-            FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 0]]
-        );
-
+        $layanan = filter_var($input['kuota_layanan'] ?? null, FILTER_VALIDATE_INT);
+        $booking = filter_var($input['kuota_booking'] ?? null, FILTER_VALIDATE_INT);
         $status = strtoupper(trim((string) ($input['status_loket'] ?? '')));
 
-        if (
-            $layanan === false ||
-            $booking === false ||
-            $booking > $layanan ||
-            !in_array($status, ['BUKA', 'TUTUP'], true)
-        ) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'status'   => false,
-                'message'  => 'Kuota atau status loket tidak valid.',
+        if ($layanan === false || $layanan < 1 || $booking === false
+            || $booking < 0 || !in_array($status, ['BUKA', 'TUTUP'], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Pengaturan loket tidak valid.',
                 'csrfHash' => csrf_hash(),
             ]);
         }
-
-        $db = \Config\Database::connect();
-        $tanggal = date('Y-m-d');
-        $sekarang = date('Y-m-d H:i:s');
-
-        // Unique key: (instansi_id, tanggal).
-        // Jika belum ada data hari ini, buat baris baru.
-        // Jika sudah ada, perbarui pengaturannya.
-        $sql = "
-            INSERT INTO kuota_instansi
-                (
-                    instansi_id,
-                    tanggal,
-                    kuota_layanan,
-                    kuota_booking,
-                    status_loket,
-                    created_at,
-                    updated_at
-                )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                kuota_layanan = VALUES(kuota_layanan),
-                kuota_booking = VALUES(kuota_booking),
-                status_loket = VALUES(status_loket),
-                updated_at = VALUES(updated_at)
-        ";
 
         try {
-            $db->query($sql, [
-                $instansiId,
-                $tanggal,
-                $layanan,
-                $booking,
-                $status,
-                $sekarang,
-                $sekarang,
-            ]);
-        } catch (\Throwable $e) {
-            log_message('error', 'Gagal simpan pengaturan loket: ' . $e->getMessage());
+            $db = db_connect();
+            $waktu = date('Y-m-d H:i:s');
+            $db->query(
+                'INSERT INTO kuota_instansi
+                    (instansi_id, tanggal, kuota_layanan, kuota_booking, status_loket, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    kuota_layanan = VALUES(kuota_layanan),
+                    kuota_booking = VALUES(kuota_booking),
+                    status_loket = VALUES(status_loket),
+                    updated_at = VALUES(updated_at)',
+                [$instansiId, date('Y-m-d'), $layanan, $booking, $status, $waktu, $waktu]
+            );
 
+            if ($db->affectedRows() < 0) {
+                throw new \RuntimeException('Gagal menyimpan pengaturan.');
+            }
+
+            return $this->response->setJSON([
+                'status' => true,
+                'data' => [
+                    'kuota_layanan' => $layanan,
+                    'kuota_booking' => $booking,
+                    'status_loket' => $status,
+                ],
+                'csrfHash' => csrf_hash(),
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', '[PengaturanLoket] {message}', ['message' => $e->getMessage()]);
             return $this->response->setStatusCode(500)->setJSON([
-                'status'   => false,
-                'message'  => 'Pengaturan gagal disimpan.',
+                'status' => false,
+                'message' => 'Gagal menyimpan pengaturan loket.',
                 'csrfHash' => csrf_hash(),
             ]);
         }
-
-        return $this->response->setJSON([
-            'status'   => true,
-            'message'  => 'Pengaturan loket berhasil disimpan.',
-            'csrfHash' => csrf_hash(),
-            'data' => [
-                'kuota_layanan' => $layanan,
-                'kuota_booking' => $booking,
-                'status_loket'  => $status,
-            ],
-        ]);
     }
 }

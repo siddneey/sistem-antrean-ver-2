@@ -3,6 +3,8 @@
 namespace App\Controllers;
 
 use App\Services\AntreanService;
+use DateTimeImmutable;
+use InvalidArgumentException;
 use Throwable;
 
 class MasyarakatController extends BaseController
@@ -14,321 +16,204 @@ class MasyarakatController extends BaseController
         $this->antreanService = new AntreanService();
     }
 
-    /**
-     * GET /masyarakat/instansi
-     *
-     * Menampilkan daftar instansi yang tersedia
-     * untuk dipilih masyarakat.
-     */
+    public function kiosk()
+    {
+        return view('masyarakat/kiosk');
+    }
+
     public function instansi()
     {
         try {
-            $db = db_connect();
-
-            $instansi = $db
-                ->table('instansi')
+            $instansi = db_connect()->table('instansi')
                 ->select('id, grup_id, nama_instansi, logo')
                 ->orderBy('nama_instansi', 'ASC')
-                ->get()
-                ->getResultArray();
+                ->get()->getResultArray();
 
             return $this->response->setJSON([
                 'status' => true,
-                'data'   => $instansi,
+                'data' => $instansi,
             ]);
         } catch (Throwable $e) {
-            log_message(
-                'error',
-                'MasyarakatController::instansi | ' . $e->getMessage()
-            );
-
-            return $this->response
-                ->setStatusCode(500)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Gagal mengambil daftar instansi.',
-                ]);
+            log_message('error', 'MasyarakatController::instansi | ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal mengambil daftar instansi.',
+            ]);
         }
     }
 
-    /**
-     * GET /masyarakat/kuota/{instansiId}?tanggal=YYYY-MM-DD
-     *
-     * Menampilkan kuota dan jumlah antrean yang sudah terpakai.
-     */
+    /** GET /masyarakat/kuota/{instansiId}?tanggal=YYYY-MM-DD */
     public function kuota($instansiId)
     {
-        if (!filter_var($instansiId, FILTER_VALIDATE_INT)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Instansi tidak valid.',
-                ]);
+        $id = filter_var($instansiId, FILTER_VALIDATE_INT);
+        if ($id === false || $id < 1) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Instansi tidak valid.',
+            ]);
         }
 
-        $instansiId = (int) $instansiId;
-
-        if ($instansiId < 1) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Instansi tidak valid.',
-                ]);
-        }
-
-        $tanggal = trim(
-            (string) $this->request->getGet('tanggal')
-        );
-
-        if ($tanggal === '') {
-            $tanggal = date('Y-m-d');
-        }
-
+        $tanggal = trim((string) $this->request->getGet('tanggal'));
+        $tanggal = $tanggal !== '' ? $tanggal : date('Y-m-d');
         if (!$this->isValidDate($tanggal)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Format tanggal harus YYYY-MM-DD.',
-                ]);
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Format tanggal harus YYYY-MM-DD.',
+            ]);
+        }
+
+        $hariIni = date('Y-m-d');
+        $batasAkhir = (new DateTimeImmutable($hariIni))->modify('+7 days')->format('Y-m-d');
+        if ($tanggal < $hariIni || $tanggal > $batasAkhir) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Tanggal harus hari ini sampai maksimal 7 hari ke depan.',
+            ]);
         }
 
         try {
             $db = db_connect();
-
-            $instansi = $db
-                ->table('instansi')
+            $instansi = $db->table('instansi')
                 ->select('id, nama_instansi, logo')
-                ->where('id', $instansiId)
-                ->get()
-                ->getRowArray();
+                ->where('id', $id)->get()->getRowArray();
 
             if (!$instansi) {
-                return $this->response
-                    ->setStatusCode(404)
-                    ->setJSON([
-                        'status'  => false,
-                        'message' => 'Instansi tidak ditemukan.',
-                    ]);
+                return $this->response->setStatusCode(404)->setJSON([
+                    'status' => false,
+                    'message' => 'Instansi tidak ditemukan.',
+                ]);
             }
 
-            $kuota = $this->antreanService
-                ->getKuotaInstansi(
-                    $instansiId,
-                    $tanggal
-                );
+            $booking = $tanggal > $hariIni;
+            $kategori = $booking ? 'BOOKING' : 'HARI_INI';
+            $pengaturan = $this->antreanService->getKuotaInstansi((int) $id, $tanggal);
+            $terpakai = $this->antreanService->getJumlahAntreanPerKategori((int) $id, $kategori, $tanggal);
+            $batas = (int) ($booking ? $pengaturan['kuota_booking'] : $pengaturan['kuota_layanan']);
+            $tersisa = max(0, $batas - $terpakai);
+            $statusLoket = strtoupper((string) $pengaturan['status_loket']);
 
-            $terpakaiBiasa = $this->antreanService
-                ->getJumlahAntreanInstansi(
-                    $instansiId,
-                    'BIASA',
-                    $tanggal
-                );
-
-            $terpakaiPrioritas = $this->antreanService
-                ->getJumlahAntreanInstansi(
-                    $instansiId,
-                    'PRIORITAS',
-                    $tanggal
-                );
+            $tanggalObj = new DateTimeImmutable($tanggal);
+            $akhirPekan = (int) $tanggalObj->format('N') >= 6;
+            $libur = $db->table('hari_libur')->where('tanggal', $tanggal)->countAllResults() > 0;
+            $jamBuka = $booking || (date('H:i:s') >= '08:00:00' && date('H:i:s') <= '21:00:00');
+            $bisaAmbil = $statusLoket === 'BUKA' && $tersisa > 0 && !$akhirPekan && !$libur && $jamBuka;
 
             return $this->response->setJSON([
                 'status' => true,
-                'data'   => [
-                    'instansi_id' => $instansiId,
-                    'instansi'    => $instansi['nama_instansi'],
-                    'logo'        => $instansi['logo'] ?? null,
-                    'tanggal'     => $tanggal,
-
-                    'biasa' => [
-                        'kuota'    => $kuota['kuota_biasa'],
-                        'terpakai' => $terpakaiBiasa,
-                        'tersisa'  => max(
-                            0,
-                            $kuota['kuota_biasa'] - $terpakaiBiasa
-                        ),
-                    ],
-
-                    'prioritas' => [
-                        'kuota'    => $kuota['kuota_prioritas'],
-                        'terpakai' => $terpakaiPrioritas,
-                        'tersisa'  => max(
-                            0,
-                            $kuota['kuota_prioritas'] - $terpakaiPrioritas
-                        ),
-                    ],
+                'data' => [
+                    'instansi_id' => (int) $id,
+                    'instansi' => $instansi['nama_instansi'],
+                    'logo' => $instansi['logo'] ?? null,
+                    'tanggal' => $tanggal,
+                    'kategori' => $kategori,
+                    'status_loket' => $statusLoket,
+                    'kuota_aktif' => $batas,
+                    'terpakai' => $terpakai,
+                    'tersisa' => $tersisa,
+                    'bisa_ambil' => $bisaAmbil,
+                    'kuota_layanan' => (int) $pengaturan['kuota_layanan'],
+                    'kuota_booking' => (int) $pengaturan['kuota_booking'],
                 ],
             ]);
         } catch (Throwable $e) {
-            log_message(
-                'error',
-                'MasyarakatController::kuota | ' . $e->getMessage()
-            );
-
-            return $this->response
-                ->setStatusCode(500)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Gagal mengambil data kuota.',
-                ]);
+            log_message('error', 'MasyarakatController::kuota | ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal mengambil data kuota.',
+            ]);
         }
     }
 
-    /**
-     * POST /masyarakat/antrean
-     *
-     * Body JSON:
-     * {
-     *     "tanggal_antrean": "2026-10-05",
-     *     "instansi_id": 5,
-     *     "jenis_antrean": "PRIORITAS"
-     * }
-     *
-     * Masyarakat hanya memilih instansi.
-     * Layanan ditentukan oleh petugas saat pelayanan.
-     */
+    /** POST /masyarakat/antrean */
     public function ambilAntrean()
     {
         $input = $this->request->getJSON(true);
-
         if (!is_array($input)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Request JSON tidak valid.',
-                ]);
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Request JSON tidak valid.',
+            ]);
         }
 
-        $tanggal = trim(
-            (string) ($input['tanggal_antrean'] ?? '')
-        );
-
-        $instansiId = filter_var(
-            $input['instansi_id'] ?? null,
-            FILTER_VALIDATE_INT
-        );
-
-        $jenisAntrean = strtoupper(
-            trim((string) ($input['jenis_antrean'] ?? ''))
-        );
-
-        if ($tanggal === '') {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Tanggal antrean wajib diisi.',
-                ]);
-        }
+        $tanggal = trim((string) ($input['tanggal_antrean'] ?? ''));
+        $id = filter_var($input['instansi_id'] ?? null, FILTER_VALIDATE_INT);
+        $jenis = strtoupper(trim((string) ($input['jenis_antrean'] ?? '')));
 
         if (!$this->isValidDate($tanggal)) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Format tanggal harus YYYY-MM-DD.',
-                ]);
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Tanggal antrean harus berformat YYYY-MM-DD.',
+            ]);
         }
-
-        if ($instansiId === false || $instansiId < 1) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Instansi wajib dipilih.',
-                ]);
+        if ($id === false || $id < 1) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Instansi wajib dipilih.',
+            ]);
         }
-
-        if (!in_array(
-            $jenisAntrean,
-            ['BIASA', 'PRIORITAS'],
-            true
-        )) {
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Jenis antrean harus BIASA atau PRIORITAS.',
-                ]);
+        if (!in_array($jenis, ['BIASA', 'PRIORITAS'], true)) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => 'Jenis antrean harus BIASA atau PRIORITAS.',
+            ]);
         }
 
         try {
-            $hasil = $this->antreanService->ambilAntrean(
-                (int) $instansiId,
-                $jenisAntrean,
-                $tanggal
-            );
-
+            $hasil = $this->antreanService->ambilAntrean((int) $id, $jenis, $tanggal);
             return $this->response
-                ->setStatusCode(201)
+                ->setStatusCode(($hasil['status'] ?? false) ? 201 : 409)
                 ->setJSON($hasil);
+        } catch (InvalidArgumentException $e) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ]);
+        } catch (\RuntimeException $e) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ]);
         } catch (Throwable $e) {
-            log_message(
-                'error',
-                'MasyarakatController::ambilAntrean | ' . $e->getMessage()
-            );
-
-            return $this->response
-                ->setStatusCode(400)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => $e->getMessage(),
-                ]);
+            log_message('error', 'MasyarakatController::ambilAntrean | ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal memproses pengambilan antrean.',
+            ]);
         }
     }
 
-        /**
-     * GET /masyarakat/hari-libur
-     *
-     * Mengambil hari libur dari database yang dikelola admin
-     * untuk kalender booking H+7.
-     */
+    /** GET /masyarakat/hari-libur */
     public function hariLibur()
     {
         $hariIni = date('Y-m-d');
-        $tanggalAkhir = date('Y-m-d', strtotime('+7 days'));
-
+        $tanggalAkhir = (new DateTimeImmutable($hariIni))->modify('+7 days')->format('Y-m-d');
         try {
-            $hariLibur = db_connect()
-                ->table('hari_libur')
+            $hariLibur = db_connect()->table('hari_libur')
                 ->select('tanggal, nama, jenis, keterangan')
                 ->where('tanggal >=', $hariIni)
                 ->where('tanggal <=', $tanggalAkhir)
                 ->orderBy('tanggal', 'ASC')
-                ->get()
-                ->getResultArray();
+                ->get()->getResultArray();
 
             return $this->response->setJSON([
                 'status' => true,
-                'data'   => $hariLibur,
+                'data' => $hariLibur,
             ]);
-
         } catch (Throwable $e) {
-            log_message(
-                'error',
-                'MasyarakatController::hariLibur | ' . $e->getMessage()
-            );
-
-            return $this->response
-                ->setStatusCode(500)
-                ->setJSON([
-                    'status'  => false,
-                    'message' => 'Gagal mengambil data hari libur.',
-                ]);
+            log_message('error', 'MasyarakatController::hariLibur | ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => false,
+                'message' => 'Gagal mengambil data hari libur.',
+            ]);
         }
     }
 
-    /**
-     * Validasi tanggal dengan format YYYY-MM-DD.
-     */
     protected function isValidDate(string $tanggal): bool
     {
-        $tanggalObj = \DateTime::createFromFormat('Y-m-d', $tanggal);
-
-        return $tanggalObj !== false
-            && $tanggalObj->format('Y-m-d') === $tanggal;
+        $obj = DateTimeImmutable::createFromFormat('!Y-m-d', $tanggal);
+        $errors = DateTimeImmutable::getLastErrors();
+        return $obj !== false
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $obj->format('Y-m-d') === $tanggal;
     }
 }

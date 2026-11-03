@@ -14,8 +14,15 @@ class KuotaInstansiModel extends Model
     protected $allowedFields = [
         'instansi_id',
         'tanggal',
+
+        // Kompatibilitas data lama
         'kuota_biasa',
         'kuota_prioritas',
+
+        // Pengaturan loket petugas
+        'kuota_layanan',
+        'kuota_booking',
+        'status_loket',
     ];
 
     protected $useTimestamps = true;

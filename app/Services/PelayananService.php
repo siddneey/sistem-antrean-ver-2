@@ -2,36 +2,330 @@
 
 namespace App\Services;
 
-use App\Models\AntreanModel;
-use App\Models\RiwayatLayananModel;
-use App\Models\RiwayatPanggilanModel;
-
 use CodeIgniter\Database\BaseConnection;
 use RuntimeException;
+use Throwable;
 
 class PelayananService
 {
     protected BaseConnection $db;
 
-    protected AntreanModel $antreanModel;
-    protected RiwayatLayananModel $riwayatLayananModel;
-    protected RiwayatPanggilanModel $riwayatPanggilanModel;
-
     public function __construct()
     {
         $this->db = db_connect();
-
-        $this->antreanModel = new AntreanModel();
-        $this->riwayatLayananModel = new RiwayatLayananModel();
-        $this->riwayatPanggilanModel = new RiwayatPanggilanModel();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | SELANJUTNYA / PANGGIL ANTREAN BERIKUTNYA
-    |--------------------------------------------------------------------------
-    */
+    private function petugas(int $petugasId): array
+    {
+        $user = $this->db->table('users')
+            ->select('id, role_id, instansi_id')
+            ->where('id', $petugasId)
+            ->get()
+            ->getRowArray();
 
+        if (
+            !$user
+            || (int) $user['role_id'] !== 2
+            || (int) $user['instansi_id'] < 1
+        ) {
+            throw new RuntimeException('Akun petugas tidak valid.');
+        }
+
+        return $user;
+    }
+
+    private function validasiPetugasInstansi(
+        int $petugasId,
+        int $instansiId
+    ): void {
+        $user = $this->petugas($petugasId);
+
+        if ((int) $user['instansi_id'] !== $instansiId) {
+            throw new RuntimeException(
+                'Antrean ini bukan tanggung jawab petugas tersebut.'
+            );
+        }
+    }
+
+    private function kunciPetugas(int $petugasId): void
+    {
+        $user = $this->db->query(
+            'SELECT id FROM users WHERE id = ? FOR UPDATE',
+            [$petugasId]
+        )->getRowArray();
+
+        if (!$user) {
+            throw new RuntimeException('Petugas tidak ditemukan.');
+        }
+    }
+
+    private function kunciRiwayat(int $id): array
+    {
+        $row = $this->db->query(
+            'SELECT * FROM riwayat_layanan WHERE id = ? FOR UPDATE',
+            [$id]
+        )->getRowArray();
+
+        if (!$row) {
+            throw new RuntimeException(
+                'Riwayat layanan tidak ditemukan.'
+            );
+        }
+
+        return $row;
+    }
+
+    private function pastikanBelumAktif(int $petugasId): void
+    {
+        $aktif = $this->db->table('riwayat_layanan rl')
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.petugas_id', $petugasId)
+            ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->whereIn(
+                'rl.status_layanan',
+                ['DIPANGGIL', 'DILAYANI']
+            )
+            ->countAllResults();
+
+        if ($aktif > 0) {
+            throw new RuntimeException(
+                'Selesaikan antrean aktif terlebih dahulu.'
+            );
+        }
+    }
+
+    private function validasiLayanan(
+        int $layananId,
+        int $instansiId
+    ): void {
+        if (
+            !$this->db->table('layanan')
+                ->where('id', $layananId)
+                ->where('instansi_id', $instansiId)
+                ->countAllResults()
+        ) {
+            throw new RuntimeException(
+                'Layanan tidak tersedia pada instansi tersebut.'
+            );
+        }
+    }
+
+    private function validasiInstansi(int $instansiId): void
+    {
+        if (
+            !$this->db->table('instansi')
+                ->where('id', $instansiId)
+                ->countAllResults()
+        ) {
+            throw new RuntimeException('Instansi tidak ditemukan.');
+        }
+    }
+
+    /**
+     * Memastikan SELURUH Display sudah online dan siap.
+     *
+     * Pemeriksaan ini tidak mengunci semua baris Kelompok.
+     * Dengan demikian, dua Kelompok berbeda tetap dapat
+     * menjalankan panggilan secara bersamaan.
+     */
+    private function pastikanSemuaDisplaySiap(): void
+    {
+        $kelompok = $this->db->table('kelompok')
+            ->select([
+                'id',
+                'nama_kelompok',
+                'display_heartbeat_at',
+                'display_audio_ready',
+            ])
+            ->orderBy('id', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        if (empty($kelompok)) {
+            throw new RuntimeException(
+                'Tidak ada Kelompok yang terdaftar.'
+            );
+        }
+
+        $sekarang = time();
+
+        foreach ($kelompok as $item) {
+            $namaKelompok = $item['nama_kelompok'];
+
+            $heartbeat = !empty($item['display_heartbeat_at'])
+                ? strtotime((string) $item['display_heartbeat_at'])
+                : false;
+
+            $selisih = $heartbeat !== false
+                ? $sekarang - $heartbeat
+                : PHP_INT_MAX;
+
+            if (
+                $heartbeat === false
+                || $selisih < 0
+                || $selisih > 15
+            ) {
+                throw new RuntimeException(
+                    'Display ' . $namaKelompok .
+                    ' sedang offline atau belum dibuka. ' .
+                    'Semua Display wajib aktif sebelum panggilan dilakukan.'
+                );
+            }
+
+            if ((int) $item['display_audio_ready'] !== 1) {
+                throw new RuntimeException(
+                    'Display ' . $namaKelompok .
+                    ' belum mengaktifkan Tes Suara. ' .
+                    'Semua Display wajib siap sebelum panggilan dilakukan.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Mengunci Kelompok suara pemanggil.
+     *
+     * NOWAIT memastikan request lain tidak menunggu
+     * transaksi panggilan sebelumnya selesai.
+     */
+    private function kunciSuaraKelompok(int $instansiId): int
+    {
+        $row = $this->db->table('instansi i')
+            ->select('g.kelompok_id')
+            ->join('grup g', 'g.id = i.grup_id')
+            ->where('i.id', $instansiId)
+            ->get()
+            ->getRowArray();
+
+        if (!$row || (int) $row['kelompok_id'] < 1) {
+            throw new RuntimeException(
+                'Kelompok suara instansi tidak ditemukan.'
+            );
+        }
+
+        $kelompokId = (int) $row['kelompok_id'];
+
+        /*
+         * Periksa semua Display sebelum mengunci jalur suara.
+         */
+        $this->pastikanSemuaDisplaySiap();
+
+        /*
+         * NOWAIT:
+         * Jika baris Kelompok sedang dikunci transaksi lain,
+         * MySQL langsung mengembalikan error.
+         */
+        try {
+            $kelompok = $this->db->query(
+                'SELECT
+                    id,
+                    status_panggilan
+                 FROM kelompok
+                 WHERE id = ?
+                 FOR UPDATE NOWAIT',
+                [$kelompokId]
+            )->getRowArray();
+
+        } catch (Throwable $e) {
+            log_message(
+                'debug',
+                'Gagal memperoleh lock Kelompok ' .
+                $kelompokId . ': ' . $e->getMessage()
+            );
+
+            throw new RuntimeException(
+                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+            );
+        }
+
+        if (!$kelompok) {
+            throw new RuntimeException(
+                'Kelompok suara tidak ditemukan.'
+            );
+        }
+
+        /*
+         * Status PLAYING tidak boleh dilewati.
+         * Hanya audioSelesai() yang boleh mengubahnya menjadi IDLE.
+         */
+        if ($kelompok['status_panggilan'] === 'PLAYING') {
+            throw new RuntimeException(
+                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+            );
+        }
+
+        return $kelompokId;
+    }
+
+    /**
+     * Menandai kelompok sedang memutar audio.
+     */
+    private function mulaiSuaraKelompok(
+        int $kelompokId,
+        int $panggilanId
+    ): void {
+        $berhasil = $this->db->table('kelompok')
+            ->where('id', $kelompokId)
+            ->update([
+                'status_panggilan' => 'PLAYING',
+                'riwayat_panggilan_aktif_id' => $panggilanId,
+                'token_panggilan' => bin2hex(random_bytes(32)),
+                'batas_kunci' => date(
+                    'Y-m-d H:i:s',
+                    time() + 120
+                ),
+            ]);
+
+        if (!$berhasil || $this->db->affectedRows() !== 1) {
+            throw new RuntimeException(
+                'Gagal mengunci jalur suara kelompok.'
+            );
+        }
+    }
+
+    /**
+     * Mencatat setiap pemanggilan sebagai aksi PANGGIL.
+     */
+    private function catatPanggilan(
+        int $id,
+        int $petugasId,
+        string $keterangan
+    ): int {
+        $waktu = date('Y-m-d H:i:s');
+
+        $berhasil = $this->db->table('riwayat_panggilan')->insert([
+            'riwayat_layanan_id' => $id,
+            'petugas_id' => $petugasId,
+            'aksi' => 'PANGGIL',
+            'waktu' => $waktu,
+            'keterangan' => $keterangan,
+            'created_at' => $waktu,
+            'updated_at' => $waktu,
+        ]);
+
+        $panggilanId = (int) $this->db->insertID();
+
+        if (!$berhasil || $panggilanId < 1) {
+            throw new RuntimeException(
+                'Gagal mencatat riwayat panggilan.'
+            );
+        }
+
+        return $panggilanId;
+    }
+
+    private function cekTransaksi(): void
+    {
+        if ($this->db->transStatus() === false) {
+            throw new RuntimeException(
+                'Gagal menyimpan perubahan antrean.'
+            );
+        }
+    }
+
+    /**
+     * PANGGIL ANTREAN PERTAMA
+     */
     public function panggilAntrean(
         int $petugasId,
         int $instansiId
@@ -44,347 +338,180 @@ class PelayananService
         $this->db->transBegin();
 
         try {
-            // Cari semua kandidat MENUNGGU
-            $kandidat = $this->db
-                ->table('riwayat_layanan')
-                ->select([
-                    'id AS riwayat_layanan_id',
-                    'antrean_id',
-                    'instansi_id',
-                    'layanan_id',
-                    'status_layanan',
-                    'waktu_masuk',
-                ])
-                ->where(
-                    'instansi_id',
-                    $instansiId
-                )
-                ->where(
-                    'status_layanan',
-                    'MENUNGGU'
-                )
-                ->orderBy(
-                    'waktu_masuk',
-                    'ASC'
-                )
-                ->orderBy(
-                    'id',
-                    'ASC'
-                )
-                ->get()
-                ->getResultArray();
+            $kelompokId = $this->kunciSuaraKelompok($instansiId);
 
+            $this->kunciPetugas($petugasId);
 
-            if (!$kandidat) {
-                throw new RuntimeException(
-                    'Tidak ada antrean yang dapat dipanggil.'
-                );
-            }
+            $this->pastikanBelumAktif($petugasId);
 
-            $hasilKandidat = $this->db
-                ->table('riwayat_layanan rl')
-                ->select([
-                    'rl.id AS riwayat_layanan_id',
-                    'rl.antrean_id',
-                    'rl.instansi_id',
-                    'rl.layanan_id',
-                    'rl.status_layanan',
-                    'rl.waktu_masuk',
-                    'a.nomor_antrean',
-                    'a.tanggal_antrean',
-                    'a.jenis_antrean',
-                ])
+            $calon = $this->db->table('riwayat_layanan rl')
+                ->select(
+                    'rl.id, rl.antrean_id, a.nomor_antrean, a.jenis_antrean'
+                )
                 ->join('antrean a', 'a.id = rl.antrean_id')
                 ->where('rl.instansi_id', $instansiId)
                 ->where('rl.status_layanan', 'MENUNGGU')
                 ->where('a.tanggal_antrean', date('Y-m-d'))
+                ->orderBy('a.jenis_antrean', 'DESC')
                 ->orderBy('rl.waktu_masuk', 'ASC')
                 ->orderBy('rl.id', 'ASC')
                 ->get()
                 ->getResultArray();
 
-            if (!$hasilKandidat) {
+            $terpilih = null;
+
+            foreach ($calon as $item) {
+                $locked = $this->kunciRiwayat(
+                    (int) $item['id']
+                );
+
+                if (
+                    $locked['status_layanan'] === 'MENUNGGU'
+                    && (int) $locked['instansi_id'] === $instansiId
+                ) {
+                    $terpilih = $item;
+                    break;
+                }
+            }
+
+            if (!$terpilih) {
                 throw new RuntimeException(
                     'Tidak ada antrean yang dapat dipanggil.'
                 );
             }
 
-            // Urutan Antrean (PRIORITAS → BIASA → FIFO)
-            usort(
-                $hasilKandidat,
-                static function (array $a, array $b): int {
-                    $prioritasA =
-                        $a['jenis_antrean'] === 'PRIORITAS'
-                            ? 0
-                            : 1;
+            $waktu = date('Y-m-d H:i:s');
 
-                    $prioritasB =
-                        $b['jenis_antrean'] === 'PRIORITAS'
-                            ? 0
-                            : 1;
-
-                    if ($prioritasA !== $prioritasB) {
-                        return $prioritasA <=> $prioritasB;
-                    }
-
-                    $waktuA = strtotime($a['waktu_masuk']);
-                    $waktuB = strtotime($b['waktu_masuk']);
-
-                    if ($waktuA !== $waktuB) {
-                        return $waktuA <=> $waktuB;
-                    }
-
-                    return (int) $a['riwayat_layanan_id']
-                        <=> (int) $b['riwayat_layanan_id'];
-                }
-            );
-
-            // Cari kandidat yang berhasil dikunci
-            $antreanTerpilih = null;
-
-            foreach ($hasilKandidat as $row) {
-                $locked = $this->db
-                    ->query(
-                        'SELECT id, antrean_id, instansi_id, status_layanan
-                         FROM riwayat_layanan
-                         WHERE id = ?
-                         FOR UPDATE',
-                        [
-                            $row['riwayat_layanan_id'],
-                        ]
-                    )
-                    ->getRowArray();
-
-                if (!$locked) {
-                    continue;
-                }
-
-                if ($locked['status_layanan'] !== 'MENUNGGU') {
-                    continue;
-                }
-
-                if ((int) $locked['instansi_id'] !== $instansiId) {
-                    continue;
-                }
-
-                $row['antrean_id'] =
-                    (int) $locked['antrean_id'];
-
-                $antreanTerpilih = $row;
-                break;
-            }
-
-            if (!$antreanTerpilih) {
-                throw new RuntimeException(
-                    'Semua antrean yang tersedia sudah diproses oleh petugas lain.'
-                );
-            }
-
-            $waktuPanggil = date('Y-m-d H:i:s');
-
-            // PANGGIL PERTAMA
-            $this->db
-                ->table('riwayat_layanan')
-                ->where(
-                    'id',
-                    $antreanTerpilih['riwayat_layanan_id']
-                )
+            $this->db->table('riwayat_layanan')
+                ->where('id', $terpilih['id'])
+                ->where('status_layanan', 'MENUNGGU')
                 ->update([
                     'status_layanan' => 'DILAYANI',
                     'petugas_id' => $petugasId,
-                    'waktu_mulai' => $waktuPanggil,
-                    'updated_at' => $waktuPanggil,
+                    'waktu_mulai' => $waktu,
+                    'updated_at' => $waktu,
                 ]);
 
-            if ($this->db->affectedRows() < 1) {
+            if ($this->db->affectedRows() !== 1) {
                 throw new RuntimeException(
-                    'Gagal mengubah status antrean menjadi DILAYANI.'
+                    'Antrean sudah dipanggil petugas lain.'
                 );
             }
 
-            // Catat panggilan pertama
-            $this->db
-                ->table('riwayat_panggilan')
-                ->insert([
-                    'riwayat_layanan_id' =>
-                        $antreanTerpilih['riwayat_layanan_id'],
+            $panggilanId = $this->catatPanggilan(
+                (int) $terpilih['id'],
+                $petugasId,
+                'Panggilan pertama'
+            );
 
-                    'petugas_id' =>
-                        $petugasId,
+            $this->mulaiSuaraKelompok(
+                $kelompokId,
+                $panggilanId
+            );
 
-                    'aksi' =>
-                        'PANGGIL',
-
-                    'waktu' =>
-                        $waktuPanggil,
-
-                    'keterangan' =>
-                        null,
-
-                    'created_at' =>
-                        $waktuPanggil,
-
-                    'updated_at' =>
-                        $waktuPanggil,
-                ]);
-
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal memproses pemanggilan antrean.'
-                );
-            }
+            $this->cekTransaksi();
 
             $this->db->transCommit();
 
             return [
-                'riwayat_layanan_id' =>
-                    (int) $antreanTerpilih['riwayat_layanan_id'],
-
-                'antrean_id' =>
-                    (int) $antreanTerpilih['antrean_id'],
-
-                'nomor_antrean' =>
-                    (int) $antreanTerpilih['nomor_antrean'],
-
-                'jenis_antrean' =>
-                    $antreanTerpilih['jenis_antrean'],
-
-                'instansi_id' =>
-                    (int) $antreanTerpilih['instansi_id'],
-
-                'petugas_id' =>
-                    $petugasId,
-
-                'status_layanan' =>
-                    'DILAYANI',
-
-                'aksi' =>
-                    'PANGGIL',
-
-                'waktu' =>
-                    $waktuPanggil,
+                'riwayat_layanan_id' => (int) $terpilih['id'],
+                'antrean_id' => (int) $terpilih['antrean_id'],
+                'nomor_antrean' => (int) $terpilih['nomor_antrean'],
+                'jenis_antrean' => $terpilih['jenis_antrean'],
+                'status_layanan' => 'DILAYANI',
+                'riwayat_panggilan_id' => $panggilanId,
             ];
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->db->transRollback();
-
             throw $e;
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ULANGI PANGGILAN
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * PANGGIL ULANG
+     */
     public function panggilUlang(
         int $petugasId,
         int $riwayatLayananId
     ): array {
+        $target = $this->db->table('riwayat_layanan')
+            ->select('instansi_id')
+            ->where('id', $riwayatLayananId)
+            ->get()
+            ->getRowArray();
+
+        if (!$target) {
+            throw new RuntimeException(
+                'Riwayat layanan tidak ditemukan.'
+            );
+        }
+
+        $this->validasiPetugasInstansi(
+            $petugasId,
+            (int) $target['instansi_id']
+        );
+
         $this->db->transBegin();
 
         try {
-            $riwayat = $this->getRiwayatDenganLock(
-                $riwayatLayananId
+            $kelompokId = $this->kunciSuaraKelompok(
+                (int) $target['instansi_id']
             );
 
-            if (!$riwayat) {
-                throw new RuntimeException(
-                    'Riwayat layanan tidak ditemukan.'
-                );
-            }
+            $this->kunciPetugas($petugasId);
 
-            // Pastikan petugas yang sama
+            $row = $this->kunciRiwayat($riwayatLayananId);
+
+            $this->validasiPetugasInstansi(
+                $petugasId,
+                (int) $row['instansi_id']
+            );
+
             if (
-                (int) $riwayat['petugas_id']
-                !== $petugasId
+                (int) $row['instansi_id'] !== (int) $target['instansi_id']
+                || (int) $row['petugas_id'] !== $petugasId
+                || !in_array(
+                    $row['status_layanan'],
+                    ['DIPANGGIL', 'DILAYANI'],
+                    true
+                )
             ) {
-                throw new RuntimeException(
-                    'Antrean ini bukan tanggung jawab petugas tersebut.'
-                );
-            }
-
-            // Hanya antrean aktif yang bisa dipanggil ulang
-            if (!in_array(
-                $riwayat['status_layanan'],
-                [
-                    'DIPANGGIL',
-                    'DILAYANI',
-                ],
-                true
-            )) {
                 throw new RuntimeException(
                     'Antrean tidak dapat dipanggil ulang.'
                 );
             }
 
-            $waktu = date('Y-m-d H:i:s');
+            $panggilanId = $this->catatPanggilan(
+                $riwayatLayananId,
+                $petugasId,
+                'Panggilan ulang'
+            );
 
-            // Catat panggilan ulang
-            $this->db
-                ->table('riwayat_panggilan')
-                ->insert([
-                    'riwayat_layanan_id' =>
-                        $riwayatLayananId,
+            $this->mulaiSuaraKelompok(
+                $kelompokId,
+                $panggilanId
+            );
 
-                    'petugas_id' =>
-                        $petugasId,
-
-                    'aksi' =>
-                        'PANGGIL',
-
-                    'waktu' =>
-                        $waktu,
-
-                    'keterangan' =>
-                        'Panggilan ulang',
-
-                    'created_at' =>
-                        $waktu,
-
-                    'updated_at' =>
-                        $waktu,
-                ]);
-
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal menyimpan riwayat panggilan ulang.'
-                );
-            }
+            $this->cekTransaksi();
 
             $this->db->transCommit();
 
             return [
-                'riwayat_layanan_id' =>
-                    $riwayatLayananId,
-
-                'petugas_id' =>
-                    $petugasId,
-
-                'aksi' =>
-                    'PANGGIL',
-
-                'keterangan' =>
-                    'Panggilan ulang',
-
-                'waktu' =>
-                    $waktu,
+                'riwayat_layanan_id' => $riwayatLayananId,
+                'aksi' => 'PANGGIL',
+                'riwayat_panggilan_id' => $panggilanId,
             ];
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->db->transRollback();
-
             throw $e;
         }
     }
 
-    
-    /*
-    |--------------------------------------------------------------------------
-    | KONFIRMASI STATUS
-    |--------------------------------------------------------------------------
-    */
+    /**
+     * KONFIRMASI STATUS LAYANAN
+     */
     public function konfirmasiStatus(
         int $petugasId,
         int $riwayatLayananId,
@@ -392,144 +519,128 @@ class PelayananService
         ?int $layananId = null,
         ?string $keterangan = null
     ): array {
-
-        // Normalisasi dan validasi status
         $status = strtoupper(trim($status));
 
         if (!in_array($status, ['SELESAI', 'PENDING'], true)) {
             throw new RuntimeException(
-                'Status hanya dapat berupa SELESAI atau PENDING.'
+                'Status harus SELESAI atau PENDING.'
             );
         }
 
         $this->db->transBegin();
 
         try {
-            // Ambil dan kunci riwayat layanan
-            $riwayat = $this->getRiwayatDenganLock(
-                $riwayatLayananId
+            $this->kunciPetugas($petugasId);
+
+            $row = $this->kunciRiwayat($riwayatLayananId);
+
+            $this->validasiPetugasInstansi(
+                $petugasId,
+                (int) $row['instansi_id']
             );
 
-            if (!$riwayat) {
+            if (
+                (int) $row['petugas_id'] !== $petugasId
+                || !in_array(
+                    $row['status_layanan'],
+                    ['DIPANGGIL', 'DILAYANI'],
+                    true
+                )
+            ) {
                 throw new RuntimeException(
-                    'Riwayat layanan tidak ditemukan.'
+                    'Antrean tidak sedang dilayani oleh petugas ini.'
                 );
             }
 
-            // Validasi petugas terhadap instansi antrean
-            $this->validasiPetugasInstansi(
-                $petugasId,
-                (int) $riwayat['instansi_id']
-            );
+            if ($status === 'SELESAI') {
+                if (!$layananId) {
+                    throw new RuntimeException(
+                        'Detail layanan wajib dipilih.'
+                    );
+                }
 
-            // Pastikan antrean sedang dipanggil atau dilayani
-            if (!in_array(
-                $riwayat['status_layanan'],
-                ['DIPANGGIL', 'DILAYANI'],
-                true
-            )) {
-                throw new RuntimeException(
-                    'Antrean tidak sedang dilayani.'
+                $this->validasiLayanan(
+                    $layananId,
+                    (int) $row['instansi_id']
                 );
             }
 
             $waktu = date('Y-m-d H:i:s');
 
-            // Jika status SELESAI
-            if ($status === 'SELESAI') {
-
-                if ($layananId === null || $layananId <= 0) {
-                    throw new RuntimeException(
-                        'Detail layanan wajib dipilih ketika status SELESAI.'
-                    );
-                }
-
-                // Pastikan layanan sesuai instansi
-                $this->validasiLayanan(
-                    $layananId,
-                    (int) $riwayat['instansi_id']
-                );
-
-                $dataUpdate = [
-                    'status_layanan' => 'SELESAI',
-                    'layanan_id'     => $layananId,
-                    'waktu_selesai'  => $waktu,
-                    'keterangan'     => $keterangan,
-                    'updated_at'     => $waktu,
-                ];
-
-            } else {
-
-                // Jika status PENDING
-                $dataUpdate = [
-                    'status_layanan' => 'PENDING',
-                    'layanan_id'     => null,
-                    'waktu_selesai'  => null,
-                    'keterangan'     => $keterangan,
-                    'updated_at'     => $waktu,
-                ];
-            }
-
-            // Simpan perubahan status
-            $this->db
-                ->table('riwayat_layanan')
+            $this->db->table('riwayat_layanan')
                 ->where('id', $riwayatLayananId)
-                ->update($dataUpdate);
+                ->update([
+                    'status_layanan' => $status,
+                    'layanan_id' => $status === 'SELESAI'
+                        ? $layananId
+                        : null,
+                    'waktu_selesai' => $status === 'SELESAI'
+                        ? $waktu
+                        : null,
+                    'keterangan' => $keterangan,
+                    'updated_at' => $waktu,
+                ]);
 
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal mengubah status antrean.'
-                );
-            }
+            $this->cekTransaksi();
 
             $this->db->transCommit();
 
             return $this->getRiwayatLayanan(
                 $riwayatLayananId
-            );
+            ) ?? [];
 
-        } catch (\Throwable $e) {
-
+        } catch (Throwable $e) {
             $this->db->transRollback();
-
             throw $e;
         }
     }
 
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | PANGGIL KEMBALI ANTREAN PENDING
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * PANGGIL ANTREAN PENDING
+     */
     public function panggilPending(
         int $petugasId,
         int $riwayatLayananId
     ): array {
+        $target = $this->db->table('riwayat_layanan')
+            ->select('instansi_id')
+            ->where('id', $riwayatLayananId)
+            ->get()
+            ->getRowArray();
+
+        if (!$target) {
+            throw new RuntimeException(
+                'Riwayat layanan tidak ditemukan.'
+            );
+        }
+
+        $this->validasiPetugasInstansi(
+            $petugasId,
+            (int) $target['instansi_id']
+        );
+
         $this->db->transBegin();
 
         try {
-            // Ambil dan kunci riwayat layanan.
-            $riwayat = $this->getRiwayatDenganLock(
-                $riwayatLayananId
+            $kelompokId = $this->kunciSuaraKelompok(
+                (int) $target['instansi_id']
             );
 
-            if (!$riwayat) {
-                throw new RuntimeException(
-                    'Riwayat layanan tidak ditemukan.'
-                );
-            }
+            $this->kunciPetugas($petugasId);
 
-            // Pastikan petugas terdaftar pada instansi antrean.
+            $this->pastikanBelumAktif($petugasId);
+
+            $row = $this->kunciRiwayat($riwayatLayananId);
+
             $this->validasiPetugasInstansi(
                 $petugasId,
-                (int) $riwayat['instansi_id']
+                (int) $row['instansi_id']
             );
 
-            // Hanya antrean PENDING yang dapat dipanggil kembali.
-            if ($riwayat['status_layanan'] !== 'PENDING') {
+            if (
+                (int) $row['instansi_id'] !== (int) $target['instansi_id']
+                || $row['status_layanan'] !== 'PENDING'
+            ) {
                 throw new RuntimeException(
                     'Antrean tidak berstatus pending.'
                 );
@@ -537,61 +648,54 @@ class PelayananService
 
             $waktu = date('Y-m-d H:i:s');
 
-            // Kembalikan antrean ke status sedang dilayani.
-            $this->db
-                ->table('riwayat_layanan')
+            $this->db->table('riwayat_layanan')
                 ->where('id', $riwayatLayananId)
                 ->update([
                     'status_layanan' => 'DILAYANI',
-                    'petugas_id'     => $petugasId,
-                    'waktu_mulai'    => $waktu,
-                    'waktu_selesai'  => null,
-                    'updated_at'     => $waktu,
+                    'petugas_id' => $petugasId,
+                    'waktu_mulai' => $waktu,
+                    'waktu_selesai' => null,
+                    'updated_at' => $waktu,
                 ]);
 
-            if ($this->db->transStatus() === false) {
+            if ($this->db->affectedRows() !== 1) {
                 throw new RuntimeException(
-                    'Gagal memanggil kembali antrean.'
+                    'Gagal mengaktifkan kembali antrean pending.'
                 );
             }
 
-            // Catat panggilan kembali pada riwayat panggilan.
-            $this->db
-                ->table('riwayat_panggilan')
-                ->insert([
-                    'riwayat_layanan_id' => $riwayatLayananId,
-                    'petugas_id'         => $petugasId,
-                    'aksi'               => 'PANGGIL',
-                    'waktu'              => $waktu,
-                    'keterangan'         => 'Pemanggilan kembali dari PENDING',
-                    'created_at'         => $waktu,
-                    'updated_at'         => $waktu,
-                ]);
+            $panggilanId = $this->catatPanggilan(
+                $riwayatLayananId,
+                $petugasId,
+                'Pemanggilan kembali dari PENDING'
+            );
 
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal menyimpan riwayat panggilan.'
-                );
-            }
+            $this->mulaiSuaraKelompok(
+                $kelompokId,
+                $panggilanId
+            );
+
+            $this->cekTransaksi();
 
             $this->db->transCommit();
 
-            return $this->getRiwayatLayanan(
+            $hasil = $this->getRiwayatLayanan(
                 $riwayatLayananId
-            );
-        } catch (\Throwable $e) {
+            ) ?? [];
+
+            $hasil['riwayat_panggilan_id'] = $panggilanId;
+
+            return $hasil;
+
+        } catch (Throwable $e) {
             $this->db->transRollback();
             throw $e;
         }
     }
 
-    
-    /*
-    |--------------------------------------------------------------------------
-    | TERUSAN ANTREAN
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * TERUSAN ANTREAN
+     */
     public function terusanAntrean(
         int $petugasId,
         int $riwayatLayananId,
@@ -602,100 +706,60 @@ class PelayananService
         $this->db->transBegin();
 
         try {
-            
-            // Lock perjalanan layanan asal
-            $riwayat = $this->getRiwayatDenganLock(
-                $riwayatLayananId
+            $this->kunciPetugas($petugasId);
+
+            $row = $this->kunciRiwayat($riwayatLayananId);
+
+            $this->validasiPetugasInstansi(
+                $petugasId,
+                (int) $row['instansi_id']
             );
 
-            if (!$riwayat) {
-                throw new RuntimeException(
-                    'Riwayat layanan tidak ditemukan.'
-                );
-            }
-
-            // Pastikan petugas yang menangani
             if (
-                (int) $riwayat['petugas_id']
-                !== $petugasId
+                (int) $row['petugas_id'] !== $petugasId
+                || !in_array(
+                    $row['status_layanan'],
+                    ['DIPANGGIL', 'DILAYANI'],
+                    true
+                )
             ) {
                 throw new RuntimeException(
-                    'Antrean ini bukan tanggung jawab petugas tersebut.'
+                    'Antrean tidak sedang dilayani oleh petugas ini.'
                 );
             }
 
-            //| Terusan hanya bisa dilakukan ketika sedang dilayani
-            if (!in_array(
-                $riwayat['status_layanan'],
-                [
-                    'DIPANGGIL',
-                    'DILAYANI',
-                ],
-                true
-            )) {
-                throw new RuntimeException(
-                    'Antrean tidak sedang dalam proses pelayanan.'
-                );
-            }
-            
-            // Validasi layanan asal
             $this->validasiLayanan(
                 $layananId,
-                (int) $riwayat['instansi_id']
+                (int) $row['instansi_id']
             );
 
-            // Validasi instansi tujuan
-            $this->validasiInstansi(
-                $instansiTujuanId
-            );
+            $this->validasiInstansi($instansiTujuanId);
 
-            // Instansi tujuan tidak boleh sama
-            if (
-                (int) $riwayat['instansi_id']
-                === $instansiTujuanId
-            ) {
+            if ((int) $row['instansi_id'] === $instansiTujuanId) {
                 throw new RuntimeException(
                     'Instansi tujuan tidak boleh sama dengan instansi asal.'
                 );
             }
 
-            // Cek perjalanan aktif di instansi tujuan
-            $sudahAda = $this->db
-                ->table('riwayat_layanan')
-                ->where(
-                    'antrean_id',
-                    $riwayat['antrean_id']
-                )
-                ->where(
-                    'instansi_id',
-                    $instansiTujuanId
-                )
+            $ada = $this->db->table('riwayat_layanan')
+                ->where('antrean_id', $row['antrean_id'])
+                ->where('instansi_id', $instansiTujuanId)
                 ->whereIn(
                     'status_layanan',
-                    [
-                        'MENUNGGU',
-                        'DIPANGGIL',
-                        'DILAYANI',
-                        'PENDING',
-                    ]
+                    ['MENUNGGU', 'DIPANGGIL', 'DILAYANI', 'PENDING']
                 )
                 ->countAllResults();
 
-            if ($sudahAda > 0) {
+            if ($ada) {
                 throw new RuntimeException(
-                    'Antrean sudah memiliki proses layanan aktif di instansi tujuan.'
+                    'Antrean sudah aktif di instansi tujuan.'
                 );
             }
 
             $waktu = date('Y-m-d H:i:s');
 
-            // Selesaikan perjalanan di instansi asal
-            $this->db
-                ->table('riwayat_layanan')
-                ->where(
-                    'id',
-                    $riwayatLayananId
-                )
+            $this->db->table('riwayat_layanan')
+                ->where('id', $riwayatLayananId)
                 ->update([
                     'status_layanan' => 'SELESAI',
                     'layanan_id' => $layananId,
@@ -704,632 +768,130 @@ class PelayananService
                     'updated_at' => $waktu,
                 ]);
 
-            // Buat perjalanan baru di instansi tujuan
-            $this->db
-                ->table('riwayat_layanan')
-                ->insert([
-                    'antrean_id' =>
-                        $riwayat['antrean_id'],
+            $this->db->table('riwayat_layanan')->insert([
+                'antrean_id' => $row['antrean_id'],
+                'instansi_id' => $instansiTujuanId,
+                'layanan_id' => null,
+                'petugas_id' => null,
+                'status_layanan' => 'MENUNGGU',
+                'waktu_masuk' => $waktu,
+                'waktu_mulai' => null,
+                'waktu_selesai' => null,
+                'keterangan' => null,
+                'created_at' => $waktu,
+                'updated_at' => $waktu,
+            ]);
 
-                    'instansi_id' =>
-                        $instansiTujuanId,
+            $idBaru = (int) $this->db->insertID();
 
-                    'layanan_id' =>
-                        null,
-
-                    'petugas_id' =>
-                        null,
-
-                    'status_layanan' =>
-                        'MENUNGGU',
-
-                    'waktu_masuk' =>
-                        $waktu,
-
-                    'waktu_mulai' =>
-                        null,
-
-                    'waktu_selesai' =>
-                        null,
-
-                    'keterangan' =>
-                        null,
-
-                    'created_at' =>
-                        $waktu,
-
-                    'updated_at' =>
-                        $waktu,
-                ]);
-
-            $riwayatBaruId = $this->db->insertID();
-
-            if (!$riwayatBaruId) {
+            if ($idBaru < 1) {
                 throw new RuntimeException(
-                    'Gagal membuat riwayat layanan tujuan.'
+                    'Gagal membuat antrean terusan.'
                 );
             }
 
-            if ($this->db->transStatus() === false) {
-                throw new RuntimeException(
-                    'Gagal memproses terusan antrean.'
-                );
-            }
+            $this->cekTransaksi();
 
             $this->db->transCommit();
 
-            return [
-                'riwayat_layanan_id' =>
-                    (int) $riwayatBaruId,
+            return $this->getRiwayatLayanan($idBaru) ?? [];
 
-                'antrean_id' =>
-                    (int) $riwayat['antrean_id'],
-
-                'nomor_antrean' =>
-                    $this->getNomorAntrean(
-                        (int) $riwayat['antrean_id']
-                    ),
-
-                'instansi_asal_id' =>
-                    (int) $riwayat['instansi_id'],
-
-                'instansi_tujuan_id' =>
-                    $instansiTujuanId,
-
-                'layanan_asal_id' =>
-                    $layananId,
-
-                'status_asal' =>
-                    'SELESAI',
-
-                'status_tujuan' =>
-                    'MENUNGGU',
-
-                'waktu_masuk_tujuan' =>
-                    $waktu,
-            ];
-
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->db->transRollback();
-
             throw $e;
         }
     }
 
-    
-    /*
-    |--------------------------------------------------------------------------
-    | GET ANTREAN PETUGAS
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * DATA ANTREAN PETUGAS
+     */
     public function getAntreanPetugas(int $petugasId): array
     {
-        // Pastikan akun benar-benar petugas dan ambil instansinya.
-        $petugas = $this->db
-            ->table('users u')
-            ->select('u.id, u.instansi_id, u.role_id, r.nama_role')
-            ->join('roles r', 'r.id = u.role_id')
-            ->where('u.id', $petugasId)
+        $user = $this->petugas($petugasId);
+
+        return $this->db->table('riwayat_layanan rl')
+            ->select(
+                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
+            )
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.instansi_id', (int) $user['instansi_id'])
+            ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->orderBy('rl.waktu_masuk', 'ASC')
             ->get()
-            ->getRowArray();
+            ->getResultArray();
+    }
 
-        if (!$petugas) {
-            throw new RuntimeException('Petugas tidak ditemukan.');
-        }
-
-        if ($petugas['nama_role'] !== 'Petugas') {
-            throw new RuntimeException('User tersebut bukan petugas.');
-        }
-
-        if (empty($petugas['instansi_id'])) {
-            throw new RuntimeException(
-                'Petugas tidak terdaftar pada instansi tersebut.'
-            );
-        }
-
-        $instansiId = (int) $petugas['instansi_id'];
-
-        // Ambil riwayat layanan pada instansi petugas beserta info nomor antrean.
-        return $this->db
-            ->table('riwayat_layanan rl')
-            ->select([
-                'rl.id AS riwayat_layanan_id',
-                'rl.antrean_id',
-                'rl.instansi_id',
-                'rl.layanan_id',
-                'rl.petugas_id',
-                'rl.status_layanan',
-                'rl.waktu_masuk',
-                'rl.waktu_mulai',
-                'rl.waktu_selesai',
-                'rl.keterangan',
-                'rl.created_at',
-                'rl.updated_at',
-                'a.nomor_antrean',
-                'a.tanggal_antrean',
-                'a.jenis_antrean',
-            ])
+    public function getAntreanSedangDilayani(
+        int $instansiId
+    ): array {
+        return $this->db->table('riwayat_layanan rl')
+            ->select(
+                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
+            )
             ->join('antrean a', 'a.id = rl.antrean_id')
             ->where('rl.instansi_id', $instansiId)
             ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->whereIn(
+                'rl.status_layanan',
+                ['DIPANGGIL', 'DILAYANI']
+            )
+            ->get()
+            ->getResultArray();
+    }
+
+    public function getAntreanSelanjutnya(
+        int $instansiId
+    ): array {
+        return $this->db->table('riwayat_layanan rl')
+            ->select(
+                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
+            )
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.instansi_id', $instansiId)
+            ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->where('rl.status_layanan', 'MENUNGGU')
+            ->orderBy('a.jenis_antrean', 'DESC')
             ->orderBy('rl.waktu_masuk', 'ASC')
             ->orderBy('rl.id', 'ASC')
             ->get()
             ->getResultArray();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GET ANTREAN YANG SEDANG DILAYANI
-    |--------------------------------------------------------------------------
-    */
-
-    public function getAntreanSedangDilayani(
-        int $instansiId
-    ): array {
-        $db = $this->db;
-        $db = $this->db;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Ambil SEMUA antrean aktif
-        |--------------------------------------------------------------------------
-        |
-        | Satu instansi dapat memiliki beberapa petugas yang bekerja
-        | bersamaan, sehingga endpoint ini tidak boleh memakai limit(1).
-        |
-        */
-
-        $riwayat = $db
-            ->table('riwayat_layanan')
-            ->where(
-                'instansi_id',
-                $instansiId
-            )
-            ->whereIn(
-                'status_layanan',
-                [
-                    'DIPANGGIL',
-                    'DILAYANI',
-                ]
-            )
-            ->orderBy(
-                'id',
-                'DESC'
-            )
-            ->get()
-            ->getResultArray();
-
-        if (!$riwayat) {
-            return [];
-        }
-
-        $hasil = [];
-
-        foreach ($riwayat as $row) {
-            $antrean = $db
-                ->table('antrean')
-                ->select([
-                    'nomor_antrean',
-                    'tanggal_antrean',
-                    'jenis_antrean',
-                ])
-                ->where(
-                    'id',
-                    $row['antrean_id']
-                )
-                ->where(
-                    'tanggal_antrean',
-                    date('Y-m-d')
-                )
-                ->get()
-                ->getRowArray();
-
-            if (!$antrean) {
-                continue;
-            }
-
-            $hasil[] = array_merge(
-                $row,
-                $antrean
-            );
-        }
-
-        return $hasil;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET ANTREAN SELANJUTNYA
-    |--------------------------------------------------------------------------
-    */
-
-    public function getAntreanSelanjutnya(
-        int $instansiId
-    ): array {
-        $kandidat = $this->db
-            ->table('riwayat_layanan')
-            ->select([
-                'id AS riwayat_layanan_id',
-                'antrean_id',
-                'instansi_id',
-                'layanan_id',
-                'petugas_id',
-                'status_layanan',
-                'waktu_masuk',
-                'waktu_mulai',
-                'waktu_selesai',
-                'keterangan',
-                'created_at',
-                'updated_at',
-            ])
-            ->where(
-                'instansi_id',
-                $instansiId
-            )
-            ->where(
-                'status_layanan',
-                'MENUNGGU'
-            )
-            ->orderBy(
-                'waktu_masuk',
-                'ASC'
-            )
-            ->orderBy(
-                'id',
-                'ASC'
-            )
-            ->get()
-            ->getResultArray();
-
-        if (!$kandidat) {
-            return [];
-        }
-
-        $hasil = [];
-
-        foreach ($kandidat as $row) {
-            $antrean = $this->db
-                ->table('antrean')
-                ->select([
-                    'id',
-                    'nomor_antrean',
-                    'tanggal_antrean',
-                    'jenis_antrean',
-                ])
-                ->where(
-                    'id',
-                    $row['antrean_id']
-                )
-                ->where(
-                    'tanggal_antrean',
-                    date('Y-m-d')
-                )
-                ->get()
-                ->getRowArray();
-
-            if (!$antrean) {
-                continue;
-            }
-
-            $row['nomor_antrean'] =
-                (int) $antrean['nomor_antrean'];
-
-            $row['tanggal_antrean'] =
-                $antrean['tanggal_antrean'];
-
-            $row['jenis_antrean'] =
-                $antrean['jenis_antrean'];
-
-            $hasil[] = $row;
-        }
-
-        // Urutan Antrean (PRIORITAS → BIASA → FIFO)
-        usort(
-            $hasil,
-            static function (array $a, array $b): int {
-                $prioritasA =
-                    $a['jenis_antrean'] === 'PRIORITAS'
-                        ? 0
-                        : 1;
-
-                $prioritasB =
-                    $b['jenis_antrean'] === 'PRIORITAS'
-                        ? 0
-                        : 1;
-
-                if ($prioritasA !== $prioritasB) {
-                    return $prioritasA <=> $prioritasB;
-                }
-
-                $waktuA = strtotime($a['waktu_masuk']);
-                $waktuB = strtotime($b['waktu_masuk']);
-
-                if ($waktuA !== $waktuB) {
-                    return $waktuA <=> $waktuB;
-                }
-
-                return (int) $a['riwayat_layanan_id']
-                    <=> (int) $b['riwayat_layanan_id'];
-            }
-        );
-
-        return $hasil;
-    }
-
-    
-    // Alias lama untuk menjaga kompatibilitas dengan controller yang masih menggunakan getAntreanMenunggu()
     public function getAntreanMenunggu(
         int $instansiId
     ): array {
-        return $this->getAntreanSelanjutnya(
-            $instansiId
-        );
+        return $this->getAntreanSelanjutnya($instansiId);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET ANTREAN YANG SUDAH DIPANGGIL
-    |--------------------------------------------------------------------------
-    */
 
     public function getAntreanSudahDipanggil(
         int $instansiId
     ): array {
-        $db = $this->db;
-        $db = $this->db;
-
-        // Ambil riwayat layanan berdasarkan instansi dan status yang ditampilkan
-        $riwayat = $db
-            ->table('riwayat_layanan')
-            ->where('instansi_id', $instansiId)
-            ->whereIn(
-                'status_layanan',
-                [
-                    'DIPANGGIL',
-                    'DILAYANI',
-                    'PENDING',
-                    'SELESAI',
-                ]
+        return $this->db->table('riwayat_layanan rl')
+            ->select(
+                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
             )
-            ->orderBy('updated_at', 'DESC')
-            ->orderBy('id', 'DESC')
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.instansi_id', $instansiId)
+            ->where('a.tanggal_antrean', date('Y-m-d'))
+            ->whereIn(
+                'rl.status_layanan',
+                ['DIPANGGIL', 'DILAYANI', 'PENDING', 'SELESAI']
+            )
+            ->orderBy('rl.updated_at', 'DESC')
             ->get()
             ->getResultArray();
-
-        if (empty($riwayat)) {
-            return [];
-        }
-
-        $hasil = [];
-        $tanggalHariIni = date('Y-m-d');
-
-        foreach ($riwayat as $row) {
-            // Ambil nomor, tanggal, dan jenis antrean dari tabel antrean
-            $antrean = $db
-                ->table('antrean')
-                ->select(
-                    'nomor_antrean, tanggal_antrean, jenis_antrean'
-                )
-                ->where('id', $row['antrean_id'])
-                ->where('tanggal_antrean', $tanggalHariIni)
-                ->get()
-                ->getRowArray();
-
-            // Lewati jika data antrean tidak ditemukan atau bukan antrean hari ini
-            if (empty($antrean)) {
-                continue;
-            }
-
-            $hasil[] = array_merge(
-                $row,
-                $antrean
-            );
-        }
-
-        return $hasil;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET RIWAYAT LAYANAN
-    |--------------------------------------------------------------------------
-    */
 
     public function getRiwayatLayanan(
         int $riwayatLayananId
     ): ?array {
-        $db = $this->db;
-        $db = $this->db;
-
-        // Ambil data riwayat layanan berdasarkan ID
-        $riwayat = $db
-            ->table('riwayat_layanan')
-            ->where('id', $riwayatLayananId)
-            ->get()
-            ->getRowArray();
-
-        if (empty($riwayat)) {
-            return null;
-        }
-
-        // Ambil nomor, tanggal, dan jenis antrean berdasarkan ID antrean
-        $antrean = $db
-            ->table('antrean')
+        return $this->db->table('riwayat_layanan rl')
             ->select(
-                'nomor_antrean, tanggal_antrean, jenis_antrean'
+                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
             )
-            ->where('id', $riwayat['antrean_id'])
+            ->join('antrean a', 'a.id = rl.antrean_id')
+            ->where('rl.id', $riwayatLayananId)
             ->get()
             ->getRowArray();
-
-        if (empty($antrean)) {
-            return null;
-        }
-
-        return array_merge(
-            $riwayat,
-            $antrean
-        );
     }
-
-    // HELPER
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET RIWAYAT DENGAN LOG
-    |--------------------------------------------------------------------------
-    */
-
-    protected function getRiwayatDenganLock(
-        int $riwayatLayananId
-    ): ?array {
-        return $this->db
-            ->query(
-                'SELECT *
-                FROM riwayat_layanan
-                WHERE id = ?
-                FOR UPDATE',
-                [$riwayatLayananId]
-            )
-            ->getRowArray();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET NOMOR ANTREAN
-    |--------------------------------------------------------------------------
-    */
-    protected function getNomorAntrean(
-        int $antreanId
-    ): int {
-        $row = $this->db
-            ->table('antrean')
-            ->select('nomor_antrean')
-            ->where(
-                'id',
-                $antreanId
-            )
-            ->get()
-            ->getRowArray();
-
-        if (!$row) {
-            throw new RuntimeException(
-                'Data antrean tidak ditemukan.'
-            );
-        }
-
-        return (int) $row['nomor_antrean'];
-    }
-
-    
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDASI LAYANAN
-    |--------------------------------------------------------------------------
-    */
-
-    protected function validasiLayanan(
-        int $layananId,
-        int $instansiId
-    ): void {
-        $layanan = $this->db
-            ->table('layanan')
-            ->where(
-                'id',
-                $layananId
-            )
-            ->where(
-                'instansi_id',
-                $instansiId
-            )
-            ->get()
-            ->getRowArray();
-
-        if (!$layanan) {
-            throw new RuntimeException(
-                'Layanan tidak ditemukan atau bukan milik instansi tersebut.'
-            );
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDASI INSTANSI
-    |--------------------------------------------------------------------------
-    */
-
-    protected function validasiInstansi(
-        int $instansiId
-    ): array {
-        $instansi = $this->db
-            ->table('instansi')
-            ->where(
-                'id',
-                $instansiId
-            )
-            ->get()
-            ->getRowArray();
-
-        if (!$instansi) {
-            throw new RuntimeException(
-                'Instansi tidak ditemukan.'
-            );
-        }
-
-        return $instansi;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDASI PETUGAS INSTANSI
-    |--------------------------------------------------------------------------
-    */
-
-    protected function validasiPetugasInstansi(
-        int $petugasId,
-        int $instansiId
-    ): void {
-        $petugas = $this->db
-            ->table('users u')
-            ->select('
-                u.id,
-                u.instansi_id,
-                u.role_id,
-                r.nama_role
-            ')
-            ->join(
-                'roles r',
-                'r.id = u.role_id'
-            )
-            ->where(
-                'u.id',
-                $petugasId
-            )
-            ->get()
-            ->getRowArray();
-
-        if (!$petugas) {
-            throw new RuntimeException(
-                'Petugas tidak ditemukan.'
-            );
-        }
-
-        if ($petugas['nama_role'] !== 'Petugas') {
-            throw new RuntimeException(
-                'User tersebut bukan petugas.'
-            );
-        }
-
-        if (
-            $petugas['instansi_id'] === null
-            || (int) $petugas['instansi_id'] !== $instansiId
-        ) {
-            throw new RuntimeException(
-                'Petugas tidak terdaftar pada instansi tersebut.'
-            );
-        }
-    }
-
 }

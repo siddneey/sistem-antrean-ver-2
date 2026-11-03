@@ -165,6 +165,8 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         'AdminPetugasController::delete/$1',
         ['filter' => 'role:1']
     );
+    
+
 
     // =========================
     // INSTANSI
@@ -405,6 +407,13 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:2']
     );
 
+    // Mengecek kesiapan seluruh Display dan status audio Kelompok petugas
+    $routes->get(
+        'antrean/status-audio',
+        'PetugasAntreanController::statusAudio',
+        ['filter' => 'role:2']
+    );
+
     // Panggil antrean berikutnya
     $routes->post(
         'antrean/panggil',
@@ -447,23 +456,33 @@ $routes->group('petugas', ['filter' => 'auth'], static function ($routes) {
         'PetugasAntreanController::terusan',
         ['filter' => 'role:2']
     );
+
+    
+    // PILIHAN    
+     $routes->get(
+        'pilihan',
+        'PetugasController::pilihan',
+        ['filter' => 'role:2']
+    );
 });
 
     // Akhir grup PETUGAS
-);
 
-// =========================================================
-// HALAMAN KIOSK MASYARAKAT
-// =========================================================
 
-$routes->get(
-    'kiosk',
-    'MasyarakatController::kiosk'
-);
+    
+    // =========================================================
+    // HALAMAN KIOSK MASYARAKAT
+    // =========================================================
 
-// =========================================================
-// MASYARAKAT - API
-// =========================================================
+    $routes->get(
+        'kiosk',
+        'MasyarakatController::kiosk'
+    );
+
+
+    // =========================================================
+    // MASYARAKAT - API
+    // =========================================================
 
     $routes->group('masyarakat', static function ($routes) {
 
@@ -489,28 +508,118 @@ $routes->get(
 
     });
 
-    // Display
+
+    // =========================================================
+    // DISPLAY PUBLIK
+    // =========================================================
+
+    /*
+     * Display tidak memerlukan login.
+     *
+     * Kelompok = Zona suara panggilan.
+     * Grup     = Instansi dan antrean yang ditampilkan.
+     *
+     * Kelompok dan Grup dapat dipilih secara independen.
+     */
+
+    // =========================================================
+    // 1. HALAMAN PEMILIHAN DISPLAY
+    // =========================================================
+
+    /**
+     * GET /display
+     *
+     * Menampilkan dropdown:
+     * - Kelompok Suara
+     * - Grup Tampilan beserta nama-nama instansi
+     */
     $routes->get(
-        'display/kelompok/(:num)',
-        'DisplayController::kelompok/$1'
+        'display',
+        'DisplayController::index'
     );
 
-    // Subdisplay
+    // =========================================================
+    // 2. HALAMAN UTAMA DISPLAY
+    // =========================================================
+
+    /**
+     * GET /display/layar/{kelompokId}/{grupId}
+     *
+     * Contoh:
+     * /display/layar/1/2
+     *
+     * Kelompok 1 = Zona suara.
+     * Grup 2     = Data tampilan.
+     */
+    $routes->get(
+        'display/layar/(:num)/(:num)',
+        'DisplayController::layar/$1/$2'
+    );
+
+    // =========================================================
+    // 3. API POLLING DISPLAY
+    // =========================================================
+
+    /**
+     * GET /display/kelompok/{kelompokId}/grup/{grupId}
+     *
+     * Contoh:
+     * /display/kelompok/1/grup/2
+     *
+     * Digunakan JavaScript untuk:
+     * - Memperbarui instansi.
+     * - Memperbarui antrean.
+     * - Memperbarui ringkasan.
+     * - Mengambil panggilan audio sesuai Kelompok.
+     */
+    $routes->get(
+        'display/kelompok/(:num)/grup/(:num)',
+        'DisplayController::kelompok/$1/$2'
+    );
+
+    // =========================================================
+    // 4. MONITORING DISPLAY
+    // =========================================================
+
+    // Display mengirim heartbeat secara berkala.
+    $routes->post(
+        'display/heartbeat/(:num)',
+        'DisplayController::heartbeat/$1'
+    );
+
+    // Memeriksa status Display seluruh kelompok.
+    $routes->get(
+        'display/status-kelompok',
+        'DisplayController::statusKelompok'
+    );
+
+    // Konfirmasi audio selesai diputar.
+    $routes->post(
+        'display/audio-selesai/(:num)',
+        'DisplayController::audioSelesai/$1'
+    );
+
+
+
+
+    // =========================================================
+    // SUBDISPLAY
+    // =========================================================
+
+    // Halaman pemilihan Grup
+    $routes->get(
+        'subdisplay',
+        'SubdisplayController::index'
+    );
+
+    // Dashboard Subdisplay berdasarkan Grup
+    $routes->get(
+        'subdisplay/grup/(:num)/layar',
+        'SubdisplayController::layar/$1'
+    );
+
+    // API polling data Subdisplay berdasarkan Grup
     $routes->get(
         'subdisplay/grup/(:num)',
         'SubdisplayController::grup/$1'
     );
-
-   
-
-    //Display
-    $routes->get(
-        'display/kelompok/(:num)',
-        'DisplayController::kelompok/$1'
-    );
-
-    //Subdisplay
-    $routes->get(
-        'subdisplay/grup/(:num)',
-        'SubdisplayController::grup/$1'
-);
