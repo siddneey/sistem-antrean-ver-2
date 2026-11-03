@@ -4,9 +4,9 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class antreanModel extends Model
+class AntreanModel extends Model
 {
-    protected $DBGroup = 'transaksi';
+    protected $DBGroup = 'default';
 
     protected $table = 'antrean';
     protected $primaryKey = 'id';
