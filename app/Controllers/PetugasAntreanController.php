@@ -231,10 +231,19 @@ class PetugasAntreanController extends BaseController
                 $daftarDisplay[] = [
                     'id' => (int) $item['id'],
                     'nama_kelompok' => $item['nama_kelompok'],
+
                     'online' => $online,
                     'audio_ready' => $audioReady,
                     'ready' => $audioReady,
                     'status' => $status,
+
+                    // Umur heartbeat dalam detik
+                    'heartbeat_detik' => $heartbeat !== false
+                        ? ($selisih >= 0 ? $selisih : null)
+                        : null,
+
+                    // Nilai asli kesiapan audio dari database
+                    'display_audio_ready' => (int) $item['display_audio_ready'],
                 ];
             }
 
