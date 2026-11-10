@@ -182,12 +182,15 @@ class PelayananService
         }
     }
 
-    /**
-     * Mengunci Kelompok suara pemanggil.
-     *
-     * NOWAIT memastikan request lain tidak menunggu
-     * transaksi panggilan sebelumnya selesai.
-     */
+ /**
+ * Mengunci Kelompok suara pemanggil.
+ *
+ * NOWAIT memastikan request lain tidak menunggu
+ * transaksi panggilan sebelumnya selesai.
+ *
+ * Lock PLAYING yang sudah kedaluwarsa akan dibersihkan
+ * agar tidak menghalangi panggilan berikutnya.
+ */
     private function kunciSuaraKelompok(int $instansiId): int
     {
         $row = $this->db->table('instansi i')
@@ -206,23 +209,26 @@ class PelayananService
         $kelompokId = (int) $row['kelompok_id'];
 
         /*
-         * Periksa semua Display sebelum mengunci jalur suara.
-         */
+        * Pastikan seluruh Display online dan siap.
+        * Syarat kedua kelompok tetap berlaku.
+        */
         $this->pastikanSemuaDisplaySiap();
 
         /*
-         * NOWAIT:
-         * Jika baris Kelompok sedang dikunci transaksi lain,
-         * MySQL langsung mengembalikan error.
-         */
+        * Ambil lock baris Kelompok.
+        * Jika sedang diproses request lain, langsung tolak.
+        */
         try {
             $kelompok = $this->db->query(
                 'SELECT
                     id,
-                    status_panggilan
-                 FROM kelompok
-                 WHERE id = ?
-                 FOR UPDATE NOWAIT',
+                    status_panggilan,
+                    riwayat_panggilan_aktif_id,
+                    token_panggilan,
+                    batas_kunci
+                FROM kelompok
+                WHERE id = ?
+                FOR UPDATE NOWAIT',
                 [$kelompokId]
             )->getRowArray();
 
@@ -234,7 +240,7 @@ class PelayananService
             );
 
             throw new RuntimeException(
-                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+                'Harap tunggu, panggilan sebelumnya sedang diproses.'
             );
         }
 
@@ -245,12 +251,54 @@ class PelayananService
         }
 
         /*
-         * Status PLAYING tidak boleh dilewati.
-         * Hanya audioSelesai() yang boleh mengubahnya menjadi IDLE.
-         */
+        * Jika masih PLAYING, periksa masa berlaku lock.
+        */
         if ($kelompok['status_panggilan'] === 'PLAYING') {
-            throw new RuntimeException(
-                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+
+            $batasKunci = !empty($kelompok['batas_kunci'])
+                ? strtotime((string) $kelompok['batas_kunci'])
+                : false;
+
+            $lockMasihBerlaku = (
+                $batasKunci !== false
+                && $batasKunci > time()
+            );
+
+            /*
+            * Lock masih berlaku.
+            * Jangan izinkan panggilan baru.
+            */
+            if ($lockMasihBerlaku) {
+                throw new RuntimeException(
+                    'Panggilan sebelumnya masih berlangsung. ' .
+                    'Harap tunggu hingga suara selesai.'
+                );
+            }
+
+            /*
+            * Lock sudah kedaluwarsa atau tidak memiliki batas waktu.
+            * Bersihkan status lama selagi baris masih terkunci.
+            */
+            $berhasil = $this->db->table('kelompok')
+                ->where('id', $kelompokId)
+                ->where('status_panggilan', 'PLAYING')
+                ->update([
+                    'status_panggilan' => 'IDLE',
+                    'riwayat_panggilan_aktif_id' => null,
+                    'token_panggilan' => null,
+                    'batas_kunci' => null,
+                ]);
+
+            if (!$berhasil) {
+                throw new RuntimeException(
+                    'Gagal membersihkan lock panggilan yang kedaluwarsa.'
+                );
+            }
+
+            log_message(
+                'warning',
+                'Lock panggilan Kelompok ' . $kelompokId .
+                ' kedaluwarsa dan berhasil dibersihkan.'
             );
         }
 
@@ -821,23 +869,29 @@ class PelayananService
             ->getResultArray();
     }
 
-    public function getAntreanSedangDilayani(
-        int $instansiId
-    ): array {
-        return $this->db->table('riwayat_layanan rl')
-            ->select(
-                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
-            )
-            ->join('antrean a', 'a.id = rl.antrean_id')
-            ->where('rl.instansi_id', $instansiId)
-            ->where('a.tanggal_antrean', date('Y-m-d'))
-            ->whereIn(
-                'rl.status_layanan',
-                ['DIPANGGIL', 'DILAYANI']
-            )
-            ->get()
-            ->getResultArray();
-    }
+ 
+public function getAntreanSedangDilayani(
+    int $instansiId
+): array {
+    return $this->db->table('riwayat_layanan rl')
+        ->select([
+            'rl.*',
+            'a.nomor_antrean',
+            'a.tanggal_antrean',
+            'a.jenis_antrean',
+            'i.nama_instansi',
+        ])
+        ->join('antrean a', 'a.id = rl.antrean_id')
+        ->join('instansi i', 'i.id = rl.instansi_id', 'left')
+        ->where('rl.instansi_id', $instansiId)
+        ->where('a.tanggal_antrean', date('Y-m-d'))
+        ->whereIn(
+            'rl.status_layanan',
+            ['DIPANGGIL', 'DILAYANI']
+        )
+        ->get()
+        ->getResultArray();
+}
 
     public function getAntreanSelanjutnya(
         int $instansiId

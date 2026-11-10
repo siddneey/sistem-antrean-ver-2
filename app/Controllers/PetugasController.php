@@ -42,62 +42,96 @@ class PetugasController extends BaseController
         ]);
     }
 
-    public function dataDashboard()
-    {
-        $instansiId = $this->instansiPetugas();
-        if ($instansiId === null) {
-            return $this->tolak();
-        }
-        $db = db_connect();
-        $rows = $db->table('riwayat_layanan rl')
-            ->select('rl.id AS riwayat_id, rl.petugas_id, a.nomor_antrean,
-                a.jenis_antrean, rl.status_layanan, rl.waktu_masuk,
-                rl.waktu_mulai, rl.waktu_selesai, l.nama_layanan')
-            ->join('antrean a', 'a.id = rl.antrean_id')
-            ->join('layanan l', 'l.id = rl.layanan_id', 'left')
-            ->where('rl.instansi_id', $instansiId)
-            ->where('a.tanggal_antrean', date('Y-m-d'))
-            ->orderBy('rl.waktu_masuk', 'ASC')
-            ->orderBy('rl.id', 'ASC')->get()->getResultArray();
 
-        $aktif = null;
-        $menunggu = [];
-        $riwayat = [];
-        $selesai = 0;
-        $petugasId = (int) session()->get('user_id');
-        foreach ($rows as $row) {
-            $status = $row['status_layanan'];
-            if (in_array($status, ['DIPANGGIL', 'DILAYANI'], true)) {
-                if ((int) $row['petugas_id'] === $petugasId && $aktif === null) {
-                    $aktif = $row;
-                }
-            } elseif ($status === 'MENUNGGU') {
-                $menunggu[] = $row;
-            } elseif (in_array($status, ['SELESAI', 'PENDING'], true)) {
-                $riwayat[] = $row;
-                if ($status === 'SELESAI') {
-                    $selesai++;
-                }
+public function dataDashboard()
+{
+    $instansiId = $this->instansiPetugas();
+
+    if ($instansiId === null) {
+        return $this->tolak();
+    }
+
+    $db = db_connect();
+
+    $rows = $db->table('riwayat_layanan rl')
+        ->select([
+            'rl.id AS riwayat_id',
+            'rl.petugas_id',
+            'rl.instansi_id',
+            'a.nomor_antrean',
+            'a.jenis_antrean',
+            'rl.status_layanan',
+            'rl.waktu_masuk',
+            'rl.waktu_mulai',
+            'rl.waktu_selesai',
+            'l.nama_layanan',
+            'i.nama_instansi',
+        ])
+        ->join('antrean a', 'a.id = rl.antrean_id')
+        ->join('layanan l', 'l.id = rl.layanan_id', 'left')
+        ->join('instansi i', 'i.id = rl.instansi_id', 'left')
+        ->where('rl.instansi_id', $instansiId)
+        ->where('a.tanggal_antrean', date('Y-m-d'))
+        ->orderBy('rl.waktu_masuk', 'ASC')
+        ->orderBy('rl.id', 'ASC')
+        ->get()
+        ->getResultArray();
+
+    $aktif = null;
+    $menunggu = [];
+    $riwayat = [];
+    $selesai = 0;
+
+    $petugasId = (int) session()->get('user_id');
+
+    foreach ($rows as $row) {
+        $status = $row['status_layanan'];
+
+        if (in_array($status, ['DIPANGGIL', 'DILAYANI'], true)) {
+            if (
+                (int) $row['petugas_id'] === $petugasId
+                && $aktif === null
+            ) {
+                $aktif = $row;
+            }
+        } elseif ($status === 'MENUNGGU') {
+            $menunggu[] = $row;
+        } elseif (in_array($status, ['SELESAI', 'PENDING'], true)) {
+            $riwayat[] = $row;
+
+            if ($status === 'SELESAI') {
+                $selesai++;
             }
         }
-        usort($menunggu, static function (array $a, array $b): int {
-            $pa = $a['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
-            $pb = $b['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
-            return ($pa <=> $pb)
-                ?: strcmp((string) $a['waktu_masuk'], (string) $b['waktu_masuk'])
-                ?: ((int) $a['riwayat_id'] <=> (int) $b['riwayat_id']);
-        });
-        return $this->response->setJSON([
-            'status' => true,
-            'data' => [
-                'aktif' => $aktif,
-                'menunggu' => $menunggu,
-                'jumlah_menunggu' => count($menunggu),
-                'jumlah_selesai' => $selesai,
-                'riwayat' => array_reverse($riwayat),
-            ],
-        ]);
     }
+
+    usort($menunggu, static function (array $a, array $b): int {
+        $pa = $a['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
+        $pb = $b['jenis_antrean'] === 'PRIORITAS' ? 0 : 1;
+
+        return ($pa <=> $pb)
+            ?: strcmp(
+                (string) $a['waktu_masuk'],
+                (string) $b['waktu_masuk']
+            )
+            ?: (
+                (int) $a['riwayat_id']
+                <=>
+                (int) $b['riwayat_id']
+            );
+    });
+
+    return $this->response->setJSON([
+        'status' => true,
+        'data' => [
+            'aktif' => $aktif,
+            'menunggu' => $menunggu,
+            'jumlah_menunggu' => count($menunggu),
+            'jumlah_selesai' => $selesai,
+            'riwayat' => array_reverse($riwayat),
+        ],
+    ]);
+}
 
     public function pilihan()
     {

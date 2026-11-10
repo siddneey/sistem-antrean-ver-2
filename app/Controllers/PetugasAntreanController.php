@@ -118,16 +118,14 @@ class PetugasAntreanController extends BaseController
      * Memeriksa kesiapan seluruh Display dan status
      * jalur suara Kelompok milik petugas.
      */
+    
     public function statusAudio()
     {
         return $this->jalankan(function () {
             $petugasId = $this->petugasId();
-
             $db = db_connect();
 
-            /*
-             * Cari Kelompok suara milik petugas.
-             */
+            // Cari kelompok milik petugas.
             $petugas = $db->table('users u')
                 ->select([
                     'u.id',
@@ -135,14 +133,8 @@ class PetugasAntreanController extends BaseController
                     'i.nama_instansi',
                     'g.kelompok_id',
                 ])
-                ->join(
-                    'instansi i',
-                    'i.id = u.instansi_id'
-                )
-                ->join(
-                    'grup g',
-                    'g.id = i.grup_id'
-                )
+                ->join('instansi i', 'i.id = u.instansi_id')
+                ->join('grup g', 'g.id = i.grup_id')
                 ->where('u.id', $petugasId)
                 ->where('u.role_id', 2)
                 ->get()
@@ -156,9 +148,7 @@ class PetugasAntreanController extends BaseController
 
             $kelompokId = (int) $petugas['kelompok_id'];
 
-            /*
-             * Ambil status seluruh Display.
-             */
+            // Ambil status seluruh Display.
             $kelompok = $db->table('kelompok')
                 ->select([
                     'id',
@@ -180,15 +170,13 @@ class PetugasAntreanController extends BaseController
             $sekarang = time();
             $semuaSiap = true;
             $statusAudioPetugas = 'IDLE';
+
             $daftarDisplay = [];
+            $daftarAlasan = [];
 
             foreach ($kelompok as $item) {
-                $heartbeat = !empty(
-                    $item['display_heartbeat_at']
-                )
-                    ? strtotime(
-                        (string) $item['display_heartbeat_at']
-                    )
+                $heartbeat = !empty($item['display_heartbeat_at'])
+                    ? strtotime((string) $item['display_heartbeat_at'])
                     : false;
 
                 $selisih = $heartbeat !== false
@@ -198,7 +186,7 @@ class PetugasAntreanController extends BaseController
                 $online = (
                     $heartbeat !== false
                     && $selisih >= 0
-                    && $selisih <= 15
+                    && $selisih <= 30
                 );
 
                 $audioReady = (
@@ -206,23 +194,28 @@ class PetugasAntreanController extends BaseController
                     && (int) $item['display_audio_ready'] === 1
                 );
 
+                // Tentukan status dan alasan yang bisa dibaca petugas.
                 if (!$online) {
                     $status = 'OFFLINE';
+                    $alasan = 'Display tidak terhubung atau heartbeat terputus.';
                 } elseif (!$audioReady) {
                     $status = 'BELUM_SIAP';
+                    $alasan = 'Audio Display belum siap. Silakan buka Display dan tekan tombol Tes Suara.';
                 } else {
                     $status = 'SIAP';
+                    $alasan = 'Display online dan audio siap.';
                 }
 
                 if (!$audioReady) {
                     $semuaSiap = false;
+
+                    $daftarAlasan[] = $item['nama_kelompok']
+                        . ': ' . $alasan;
                 }
 
                 $statusPanggilan = (
                     $item['status_panggilan'] === 'PLAYING'
-                )
-                    ? 'PLAYING'
-                    : 'IDLE';
+                ) ? 'PLAYING' : 'IDLE';
 
                 if ((int) $item['id'] === $kelompokId) {
                     $statusAudioPetugas = $statusPanggilan;
@@ -236,23 +229,41 @@ class PetugasAntreanController extends BaseController
                     'audio_ready' => $audioReady,
                     'ready' => $audioReady,
                     'status' => $status,
+                    'alasan' => $alasan,
 
-                    // Umur heartbeat dalam detik
                     'heartbeat_detik' => $heartbeat !== false
                         ? ($selisih >= 0 ? $selisih : null)
                         : null,
 
-                    // Nilai asli kesiapan audio dari database
                     'display_audio_ready' => (int) $item['display_audio_ready'],
                 ];
             }
 
+            // Pesan kondisi kesiapan seluruh Display.
+            if ($semuaSiap) {
+                $pesanKesiapan = 'Semua Display online dan audio siap.';
+            } else {
+                $pesanKesiapan = implode(' ', $daftarAlasan);
+            }
+
+            // Pesan kondisi panggilan milik kelompok petugas.
+            if ($statusAudioPetugas === 'PLAYING') {
+                $pesanPanggilan = 'Panggilan sebelumnya masih berlangsung. Tunggu sampai audio selesai.';
+            } else {
+                $pesanPanggilan = 'Tidak ada panggilan yang sedang berlangsung.';
+            }
+
             return [
                 'semua_display_siap' => $semuaSiap,
+                'pesan_kesiapan' => $pesanKesiapan,
+
                 'status_panggilan' => $statusAudioPetugas,
+                'pesan_panggilan' => $pesanPanggilan,
+
                 'kelompok_id' => $kelompokId,
                 'instansi_id' => (int) $petugas['instansi_id'],
                 'nama_instansi' => $petugas['nama_instansi'],
+
                 'displays' => $daftarDisplay,
             ];
         });

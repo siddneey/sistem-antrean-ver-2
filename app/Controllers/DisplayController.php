@@ -358,7 +358,7 @@ class DisplayController extends BaseController
                     ]);
             }
 
-            $db->table('kelompok')
+            $berhasil = $db->table('kelompok')
                 ->where('id', $kelompokId)
                 ->where('display_session_token', $sessionToken)
                 ->update([
@@ -366,9 +366,45 @@ class DisplayController extends BaseController
                     'display_audio_ready'  => $audioReady,
                 ]);
 
+            if (!$berhasil) {
+                log_message(
+                    'error',
+                    'Heartbeat gagal update. Kelompok ID: ' . $kelompokId
+                );
+
+                return $this->response
+                    ->setStatusCode(500)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Gagal memperbarui data heartbeat Display.',
+                    ]);
+            }
+
+            // Pastikan data benar-benar tersimpan.
+            $hasilUpdate = $db->table('kelompok')
+                ->select('display_heartbeat_at, display_audio_ready')
+                ->where('id', $kelompokId)
+                ->where('display_session_token', $sessionToken)
+                ->get()
+                ->getRowArray();
+
+            if (!$hasilUpdate) {
+                return $this->response
+                    ->setStatusCode(409)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Sesi Display berubah. Silakan muat ulang Display.',
+                    ]);
+            }
+
             return $this->response->setJSON([
                 'status'  => true,
                 'message' => 'Heartbeat berhasil.',
+                'data' => [
+                    'kelompok_id' => $kelompokId,
+                    'heartbeat_at' => $hasilUpdate['display_heartbeat_at'],
+                    'audio_ready' => (int) $hasilUpdate['display_audio_ready'],
+                ],
             ]);
 
         } catch (Throwable $e) {

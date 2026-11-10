@@ -13,7 +13,153 @@ $namaInstansi = (string) ($namaInstansi ?? 'Instansi tidak ditemukan');
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-        :root {
+
+       /* Popup informasi panggilan */
+        .popup-panggilan-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, .48);
+        }
+
+        .popup-panggilan-backdrop.show {
+            display: flex;
+        }
+
+        /* Kotak popup */
+        .popup-panggilan {
+            width: min(430px, 100%);
+            overflow: hidden;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, .25);
+            animation: popupPanggilanMasuk .18s ease-out;
+        }
+
+        /* Header */
+        .popup-panggilan-header {
+            min-height: 62px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #fff;
+            background: #10233f;
+        }
+
+        .popup-panggilan-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 17px;
+            font-weight: 650;
+        }
+
+        /* Tombol X */
+        .popup-panggilan-close {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: 0;
+            color: #fff;
+            background: transparent;
+            font-size: 29px;
+            font-weight: 300;
+            line-height: 1;
+            cursor: pointer;
+            opacity: .9;
+        }
+
+        .popup-panggilan-close:hover {
+            opacity: 1;
+        }
+
+        /* Isi popup */
+        .popup-panggilan-body {
+            min-height: 165px;
+            padding: 26px 28px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 17px;
+            text-align: center;
+            color: #253247;
+        }
+
+        /* Ikon peringatan */
+        .popup-panggilan-icon {
+            width: 46px;
+            height: 46px;
+            display: grid;
+            place-items: center;
+            border: 3px solid #d6ad22;
+            border-radius: 50%;
+            color: #d6ad22;
+            font-size: 29px;
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        /* Teks pesan */
+        .popup-panggilan-pesan {
+            max-width: 360px;
+            margin: 0;
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        /* Animasi */
+        @keyframes popupPanggilanMasuk {
+            from {
+                opacity: 0;
+                transform: translateY(8px) scale(.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Tampilan HP */
+        @media (max-width: 576px) {
+            .popup-panggilan {
+                width: min(380px, 100%);
+                border-radius: 12px;
+            }
+
+            .popup-panggilan-header {
+                min-height: 56px;
+                padding: 12px 16px;
+            }
+
+            .popup-panggilan-title {
+                font-size: 16px;
+            }
+
+            .popup-panggilan-body {
+                min-height: 145px;
+                padding: 22px 18px;
+                gap: 14px;
+            }
+
+            .popup-panggilan-icon {
+                width: 42px;
+                height: 42px;
+                font-size: 26px;
+            }
+
+            .popup-panggilan-pesan {
+                font-size: 14px;
+            }
+        }     :root {
             --navy: #10233f;
             --navy-light: #193456;
             --yellow: #f5c542;
@@ -476,6 +622,48 @@ $namaInstansi = (string) ($namaInstansi ?? 'Instansi tidak ditemukan');
             color: var(--navy);
         }
 
+        .status-display-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #f8fafc;
+}
+
+    .status-display-item strong {
+        color: var(--navy);
+    }
+
+    .status-display-item small {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+
+    .status-display-item .badge {
+        flex-shrink: 0;
+    }
+
+    .pesan-status-gagal {
+        padding: 10px 12px;
+        background: #fff1f0;
+        color: #b42318;
+        border-radius: 7px;
+        border: 1px solid #fecdca;
+    }
+
+    .pesan-status-siap {
+        padding: 10px 12px;
+        background: #e4f6eb;
+        color: #197044;
+        border-radius: 7px;
+    }
+
         @media (max-width: 760px) {
             .topbar { padding: 10px 12px; }
             .brand-logo { height: 34px; }
@@ -588,7 +776,6 @@ $namaInstansi = (string) ($namaInstansi ?? 'Instansi tidak ditemukan');
             <span id="statusBadgeText">Loket Buka</span>
         </span>
     </div>
-
 
     <section class="dashboard">
 
@@ -1047,10 +1234,15 @@ let audioPernahPlaying = false;
 
 let daftarStatusDisplay = [];
 
+let pesanStatusAudioError = '';
+let pesanKesiapanServer = '';
+let pesanPanggilanServer = '';
+
 /*
- * Mencegah request status audio berjalan bersamaan.
+ * Request status audio yang sedang berjalan.
+ * Request polling dan klik tombol akan memakai request yang sama.
  */
-let statusAudioChecking = false;
+let statusAudioRequest = null;
 let dashboardChecking = false;
 
 
@@ -1071,6 +1263,40 @@ function nilaiBoolean(value) {
 
 const modal = id =>
     bootstrap.Modal.getOrCreateInstance(el(id));
+
+
+function tampilkanNotifikasiPanggilan(pesan, jenis = 'gagal') {
+    const popup = el('popupNotifikasiPanggilan');
+    const isi = el('isiNotifikasiPanggilan');
+
+    if (!popup || !isi) {
+        console.warn(pesan);
+        return;
+    }
+
+    isi.textContent = String(
+        pesan || 'Panggilan tidak dapat diproses.'
+    );
+
+    popup.classList.add('show');
+    popup.setAttribute('aria-hidden', 'false');
+    el('tutupNotifikasiPanggilan')?.focus();
+}
+
+function tutupNotifikasiPanggilan() {
+    const popup = el('popupNotifikasiPanggilan');
+
+    if (!popup) return;
+
+    popup.classList.remove('show');
+    popup.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        tutupNotifikasiPanggilan();
+    }
+});
 
 const escapeHTML = nilai => String(nilai ?? '')
     .replace(/&/g, '&amp;')
@@ -1169,101 +1395,125 @@ async function postJSON(url, payload) {
 |--------------------------------------------------------------------------
 */
 
-async function muatStatusAudio() {
-    if (statusAudioChecking) {
-        return null;
+function muatStatusAudio() {
+    if (statusAudioRequest) {
+        return statusAudioRequest;
     }
 
-    statusAudioChecking = true;
+    statusAudioRequest = (async () => {
+        try {
+            const data = await getJSON(API.statusAudio);
 
-    try {
-        const data = await getJSON(API.statusAudio);
+            statusAudioLoaded = true;
+            pesanStatusAudioError = '';
 
-        statusAudioLoaded = true;
+            semuaDisplaySiap = nilaiBoolean(
+                data.semua_display_siap
+            );
 
-        semuaDisplaySiap = nilaiBoolean(
-            data.semua_display_siap
-        );
+            statusPanggilanServer = String(
+                data.status_panggilan || 'UNKNOWN'
+            ).toUpperCase();
 
-        statusPanggilanServer = String(
-            data.status_panggilan || 'UNKNOWN'
-        ).toUpperCase();
+            pesanKesiapanServer = String(
+                data.pesan_kesiapan || ''
+            );
 
-        daftarStatusDisplay = Array.isArray(data.displays)
-            ? data.displays
-            : [];
+            pesanPanggilanServer = String(
+                data.pesan_panggilan || ''
+            );
 
-        if (statusPanggilanServer === 'PLAYING') {
-            audioGuard = true;
-            audioPernahPlaying = true;
+            daftarStatusDisplay = Array.isArray(data.displays)
+                ? data.displays
+                : [];
+
+            if (statusPanggilanServer === 'PLAYING') {
+                audioGuard = true;
+                audioPernahPlaying = true;
+            }
+
+            if (
+                statusPanggilanServer === 'IDLE' &&
+                audioGuard &&
+                audioPernahPlaying &&
+                !sibuk
+            ) {
+                audioGuard = false;
+                audioPernahPlaying = false;
+            }
+
+            render();
+
+            return data;
+
+        } catch (error) {
+            statusAudioLoaded = false;
+            semuaDisplaySiap = false;
+
+            pesanStatusAudioError =
+                error.message ||
+                'Tidak dapat menghubungi server untuk memeriksa Display.';
+
+            console.error('Gagal memuat status Display:', error);
+
+            render();
+
+            throw error;
+
+        } finally {
+            statusAudioRequest = null;
         }
+    })();
 
-        if (
-            statusPanggilanServer === 'IDLE' &&
-            audioGuard &&
-            audioPernahPlaying &&
-            !sibuk
-        ) {
-            audioGuard = false;
-            audioPernahPlaying = false;
-        }
-
-        render();
-
-        return data;
-
-    } catch (error) {
-        statusAudioLoaded = false;
-        semuaDisplaySiap = false;
-
-        console.error('Gagal memuat status Display:', error);
-
-        render();
-
-        throw error;
-
-    } finally {
-        statusAudioChecking = false;
-    }
+    return statusAudioRequest;
 }
 
 
 function pesanDisplayBelumSiap() {
     if (!statusAudioLoaded) {
-        return 'Gagal memeriksa status Display. Silakan coba lagi.';
+        return (
+            pesanStatusAudioError ||
+            'Gagal memeriksa status Display. Silakan coba lagi.'
+        );
     }
 
     if (!semuaDisplaySiap) {
         const belumSiap = daftarStatusDisplay.filter(item => {
-        return !nilaiBoolean(item.ready);
-       });
+            return !nilaiBoolean(item.ready);
+        });
+
         if (belumSiap.length > 0) {
             const daftar = belumSiap.map(item => {
                 const nama = item.nama_kelompok || 'Kelompok';
-                const status = item.status || 'BELUM_SIAP';
+                const alasan =
+                    item.alasan ||
+                    item.status ||
+                    'Display belum siap';
 
-                return `${nama}: ${status}`;
+                return `${nama}: ${alasan}`;
             });
 
             return (
-                'Panggilan belum dapat dilakukan. ' +
-                'Pastikan seluruh Display online dan Tes Suara siap.\n\n' +
+                'Panggilan belum dapat dilakukan.\n\n' +
                 daftar.join('\n')
             );
         }
 
         return (
-            'Panggilan belum dapat dilakukan. ' +
+            pesanKesiapanServer ||
             'Pastikan seluruh Display online dan Tes Suara siap.'
         );
     }
 
     if (statusPanggilanServer === 'PLAYING') {
-        return 'Harap tunggu, panggilan sebelumnya sedang berlangsung.';
+        return (
+            pesanPanggilanServer ||
+            'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+        );
     }
 
     if (audioGuard) {
-        return 'Harap tunggu, status panggilan sebelumnya belum selesai.';
+        return 'Status panggilan sebelumnya belum selesai. Silakan tunggu.';
     }
 
     return '';
@@ -1315,6 +1565,97 @@ function toggleStatusBadge() {
     render();
 }
 
+function renderStatusDisplay() {
+    const badge = el('statusKeseluruhan');
+    const pesan = el('pesanStatusDisplay');
+    const daftar = el('daftarStatusDisplay');
+
+    if (!badge || !pesan || !daftar) {
+        return;
+    }
+
+    daftar.replaceChildren();
+
+    if (!statusAudioLoaded) {
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'TIDAK DIKETAHUI';
+
+        pesan.className = 'pesan-status-gagal';
+        pesan.textContent =
+            pesanStatusAudioError ||
+            'Status Display belum berhasil diperiksa.';
+
+        return;
+    }
+
+    if (semuaDisplaySiap) {
+        badge.className = 'badge bg-success';
+        badge.textContent = 'SEMUA SIAP';
+
+        pesan.className = 'pesan-status-siap';
+        pesan.textContent =
+            'Semua Display online dan audio siap. Pemanggilan dapat dilakukan.';
+    } else {
+        badge.className = 'badge bg-danger';
+        badge.textContent = 'BELUM SIAP';
+
+        pesan.className = 'pesan-status-gagal';
+        pesan.textContent =
+            pesanKesiapanServer ||
+            'Pemanggilan belum dapat dilakukan. Periksa kesiapan Display.';
+    }
+
+    daftarStatusDisplay.forEach(item => {
+        const baris = document.createElement('div');
+        baris.className = 'status-display-item';
+
+        const informasi = document.createElement('div');
+
+        const nama = document.createElement('strong');
+        nama.textContent = item.nama_kelompok || 'Display';
+
+        const alasan = document.createElement('small');
+        alasan.textContent =
+            item.alasan ||
+            (nilaiBoolean(item.ready)
+                ? 'Display online dan audio siap.'
+                : 'Display belum siap.');
+
+        informasi.appendChild(nama);
+        informasi.appendChild(alasan);
+
+        const status = document.createElement('span');
+        status.className = nilaiBoolean(item.ready)
+            ? 'badge bg-success'
+            : 'badge bg-danger';
+
+        status.textContent = item.status || (
+            nilaiBoolean(item.ready) ? 'SIAP' : 'BELUM SIAP'
+        );
+
+        baris.appendChild(informasi);
+        baris.appendChild(status);
+
+        daftar.appendChild(baris);
+    });
+
+    if (
+        statusPanggilanServer === 'PLAYING' ||
+        audioGuard
+    ) {
+        const peringatan = document.createElement('div');
+
+        peringatan.className =
+            'alert alert-warning py-2 mt-2 mb-0';
+
+        peringatan.textContent =
+            pesanPanggilanServer ||
+            'Harap tunggu, panggilan sebelumnya sedang berlangsung.';
+
+        daftar.appendChild(peringatan);
+    }
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -1345,23 +1686,17 @@ function render() {
     el('countWaiting').textContent = menunggu.length;
     el('countDone').textContent = jumlahSelesai;
 
-    const bolehPanggil = (
-        statusAudioLoaded
-        && semuaDisplaySiap
-        && !audioGuard
-        && !sibuk
-    );
+    const bolehPanggil = !sibuk;
 
-    el('btnUlang').disabled = (
-        !aktif || !bolehPanggil
-    );
+    /*
+     * Tombol panggilan tetap bisa diklik agar petugas
+     * mendapat alasan melalui Toast jika syarat antrean
+     * belum terpenuhi. Tombol hanya dikunci saat proses
+     * request sedang berjalan.
+     */
+    el('btnUlang').disabled = sibuk;
 
-    el('btnSelanjutnya').disabled = (
-        !!aktif
-        || !menunggu.length
-        || !loketAktif
-        || !bolehPanggil
-    );
+    el('btnSelanjutnya').disabled = sibuk;
 
     el('btnSelesai').disabled = (
         !aktif || sibuk
@@ -1580,14 +1915,14 @@ async function aksi(callback) {
 | AKSI PANGGILAN AUDIO
 |--------------------------------------------------------------------------
 */
-
 async function aksiPanggilan(callback) {
     if (sibuk) {
         return;
     }
 
     /*
-     * Periksa ulang kesiapan Display.
+     * Periksa ulang status terbaru dari server sebelum memanggil.
+     * Request ini akan menunggu polling yang sedang berjalan jika ada.
      */
     try {
         await muatStatusAudio();
@@ -1595,39 +1930,40 @@ async function aksiPanggilan(callback) {
     } catch (error) {
         console.error('Status audio:', error);
 
-        alert(
-            'Tidak dapat memeriksa kesiapan Display. ' +
-            'Panggilan dibatalkan.'
+        tampilkanNotifikasiPanggilan(
+            error.message ||
+            'Tidak dapat memeriksa kesiapan Display. Panggilan dibatalkan.'
         );
 
         return;
     }
 
+    /* Kedua Display wajib online dan audio-ready. */
     if (!semuaDisplaySiap) {
-        alert(pesanDisplayBelumSiap());
-        return;
-    }
-
-    if (
-        statusPanggilanServer === 'PLAYING'
-        || audioGuard
-    ) {
-        alert(
-            'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+        tampilkanNotifikasiPanggilan(
+            pesanDisplayBelumSiap()
         );
 
         return;
     }
 
-    /*
-     * Kunci tombol sebelum mengirim permintaan.
-     */
+    /* Cegah panggilan baru saat panggilan sebelumnya masih berjalan. */
+    if (
+        statusPanggilanServer === 'PLAYING' ||
+        audioGuard
+    ) {
+        tampilkanNotifikasiPanggilan(
+            pesanPanggilanServer ||
+            'Harap tunggu, panggilan sebelumnya sedang berlangsung.',
+            'peringatan'
+        );
+
+        return;
+    }
+
+    /* Kunci aksi selama request dikirim ke server. */
     sibuk = true;
     audioGuard = true;
-
-    /*
-     * Belum melihat PLAYING untuk panggilan baru ini.
-     */
     audioPernahPlaying = false;
 
     render();
@@ -1636,12 +1972,14 @@ async function aksiPanggilan(callback) {
 
     try {
         await callback();
-
         requestBerhasil = true;
 
     } catch (error) {
         console.error('Panggilan audio:', error);
-        alert(error.message);
+
+        tampilkanNotifikasiPanggilan(
+            error.message || 'Panggilan gagal diproses.'
+        );
 
     } finally {
         sibuk = false;
@@ -1649,19 +1987,20 @@ async function aksiPanggilan(callback) {
         await muatDashboard();
 
         /*
-         * Jika request gagal, periksa status backend.
-         * Jika status masih IDLE dan belum pernah PLAYING,
-         * pengunci boleh dilepas karena permintaan gagal.
+         * Perbarui status dari server.
+         * Jika request gagal dan server masih IDLE, lepaskan pengunci.
+         * Jika request berhasil, pengunci menunggu PLAYING lalu IDLE.
          */
         try {
             await muatStatusAudio();
 
             if (
-                !requestBerhasil
-                && statusPanggilanServer === 'IDLE'
-                && !audioPernahPlaying
+                !requestBerhasil &&
+                statusPanggilanServer === 'IDLE' &&
+                !audioPernahPlaying
             ) {
                 audioGuard = false;
+                audioPernahPlaying = false;
             }
 
         } catch (error) {
@@ -1669,11 +2008,7 @@ async function aksiPanggilan(callback) {
                 'Gagal memperbarui status audio:',
                 error
             );
-
-            /*
-             * Status tidak diketahui:
-             * pengunci tetap aktif.
-             */
+            /* Jika status tidak diketahui, pengunci tetap aktif. */
         }
 
         render();
@@ -1689,17 +2024,24 @@ async function aksiPanggilan(callback) {
 
 async function selanjutnya() {
     if (!loketAktif) {
-        return alert('Loket sedang ditutup.');
+        return tampilkanNotifikasiPanggilan(
+            'Loket sedang ditutup.',
+            'peringatan'
+        );
     }
 
     if (aktif) {
-        return alert(
-            'Selesaikan antrean aktif terlebih dahulu.'
+        return tampilkanNotifikasiPanggilan(
+            'Selesaikan antrean aktif terlebih dahulu.',
+            'peringatan'
         );
     }
 
     if (!menunggu.length) {
-        return alert('Tidak ada antrean berikutnya.');
+        return tampilkanNotifikasiPanggilan(
+            'Tidak ada antrean berikutnya.',
+            'peringatan'
+        );
     }
 
     await aksiPanggilan(async () => {
@@ -1718,7 +2060,10 @@ async function selanjutnya() {
 
 async function panggilUlang() {
     if (!aktif) {
-        return alert('Belum ada antrean aktif.');
+        return tampilkanNotifikasiPanggilan(
+            'Belum ada antrean aktif.',
+            'peringatan'
+        );
     }
 
     await aksiPanggilan(async () => {
@@ -2033,6 +2378,39 @@ setInterval(() => {
 }, 1000);
 
 </script>
+
+<div id="popupNotifikasiPanggilan"
+     class="popup-panggilan-backdrop"
+     role="alertdialog"
+     aria-modal="true"
+     aria-labelledby="judulPopupPanggilan"
+     aria-describedby="isiNotifikasiPanggilan"
+     aria-hidden="true">
+
+    <div class="popup-panggilan">
+        <div class="popup-panggilan-header">
+            <div class="popup-panggilan-title" id="judulPopupPanggilan">
+                <i class="bi bi-info-circle"></i>
+                <span>Informasi!</span>
+            </div>
+
+            <button type="button"
+                    id="tutupNotifikasiPanggilan"
+                    class="popup-panggilan-close"
+                    onclick="tutupNotifikasiPanggilan()"
+                    aria-label="Tutup popup">
+                &times;
+            </button>
+        </div>
+
+        <div class="popup-panggilan-body">
+            <div class="popup-panggilan-icon" aria-hidden="true">!</div>
+            <p class="popup-panggilan-pesan"
+               id="isiNotifikasiPanggilan">Notifikasi</p>
+        </div>
+    </div>
+</div>
+</div>
 
 </body>
 </html>
