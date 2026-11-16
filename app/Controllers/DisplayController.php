@@ -548,6 +548,10 @@ class DisplayController extends BaseController
 
         $sessionToken = (string) ($input['session_token'] ?? '');
 
+        $tokenPanggilan = (string) (
+            $input['token_panggilan'] ?? ''
+        );
+
         $riwayatId = filter_var(
             $input['riwayat_panggilan_id'] ?? null,
             FILTER_VALIDATE_INT
@@ -555,6 +559,7 @@ class DisplayController extends BaseController
 
         if (
             $sessionToken === ''
+            || $tokenPanggilan === ''
             || $riwayatId === false
             || $riwayatId < 1
         ) {
@@ -577,7 +582,8 @@ class DisplayController extends BaseController
                     id,
                     status_panggilan,
                     riwayat_panggilan_aktif_id,
-                    display_session_token
+                    display_session_token,
+                    token_panggilan
                  FROM kelompok
                  WHERE id = ?
                  FOR UPDATE',
@@ -626,6 +632,24 @@ class DisplayController extends BaseController
                     ->setJSON([
                         'status'  => false,
                         'message' => 'Panggilan aktif tidak cocok.',
+                    ]);
+            }
+
+            // Pastikan token berasal dari rangkaian audio yang aktif.
+            if (
+                empty($kelompok['token_panggilan'])
+                || !hash_equals(
+                    (string) $kelompok['token_panggilan'],
+                    $tokenPanggilan
+                )
+            ) {
+                $db->transRollback();
+
+                return $this->response
+                    ->setStatusCode(409)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Token panggilan tidak cocok atau sudah kedaluwarsa.',
                     ]);
             }
 

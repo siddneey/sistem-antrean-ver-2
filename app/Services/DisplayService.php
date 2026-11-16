@@ -260,25 +260,38 @@ class DisplayService
             ? (int) $kelompok['riwayat_panggilan_aktif_id']
             : 0;
 
-        /*
-         * Cari detail panggilan yang sedang aktif.
-         */
-        $panggilanAktif = null;
+  /*
+ * Cari detail panggilan yang sedang aktif.
+ * Sertakan token khusus untuk validasi penyelesaian audio.
+ */
+$panggilanAktif = null;
 
+if (
+    $statusPanggilan === 'PLAYING'
+    && $riwayatPanggilanAktifId > 0
+) {
+    foreach ($riwayatAudio as &$item) {
         if (
-            $statusPanggilan === 'PLAYING'
-            && $riwayatPanggilanAktifId > 0
+            (int) $item['riwayat_panggilan_id']
+            === $riwayatPanggilanAktifId
         ) {
-            foreach ($riwayatAudio as $item) {
-                if (
-                    (int) $item['riwayat_panggilan_id']
-                    === $riwayatPanggilanAktifId
-                ) {
-                    $panggilanAktif = $item;
-                    break;
-                }
+            $panggilanAktif = $item;
+
+            $tokenPanggilan = (string) (
+                $kelompok['token_panggilan'] ?? ''
+            );
+
+            if ($tokenPanggilan !== '') {
+                $item['token_panggilan'] = $tokenPanggilan;
+                $panggilanAktif = $item;
             }
+
+            break;
         }
+    }
+
+    unset($item);
+}
 
         /*
          * Panggilan visual terbaru per instansi.

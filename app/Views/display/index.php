@@ -1305,7 +1305,10 @@ async function kirimHeartbeat() {
    KONFIRMASI AUDIO SELESAI
 ==================================================== */
 
-async function konfirmasiAudioSelesai(riwayatId) {
+async function konfirmasiAudioSelesai(
+    riwayatId,
+    tokenPanggilan
+) {
     try {
         const response = await fetch(AUDIO_SELESAI_URL, {
             method: 'POST',
@@ -1316,7 +1319,8 @@ async function konfirmasiAudioSelesai(riwayatId) {
             },
             body: JSON.stringify({
                 session_token: DISPLAY_SESSION_TOKEN,
-                riwayat_panggilan_id: riwayatId
+                riwayat_panggilan_id: riwayatId,
+                token_panggilan: tokenPanggilan
             })
         });
 
@@ -1342,7 +1346,6 @@ async function konfirmasiAudioSelesai(riwayatId) {
         return false;
     }
 }
-
 /* ====================================================
    ANGKA AUDIO
 ==================================================== */

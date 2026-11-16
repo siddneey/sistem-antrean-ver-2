@@ -15,151 +15,153 @@ $namaInstansi = (string) ($namaInstansi ?? 'Instansi tidak ditemukan');
     <style>
 
        /* Popup informasi panggilan */
-        .popup-panggilan-backdrop {
-            position: fixed;
-            inset: 0;
-            z-index: 20000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background: rgba(0, 0, 0, .48);
-        }
+    .popup-panggilan-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, .48);
+    }
 
-        .popup-panggilan-backdrop.show {
-            display: flex;
-        }
+    .popup-panggilan-backdrop.show {
+        display: flex;
+    }
 
-        /* Kotak popup */
+    /* Kotak popup */
+    .popup-panggilan {
+        width: min(430px, 100%);
+        overflow: hidden;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, .25);
+        animation: popupPanggilanMasuk .18s ease-out;
+    }
+
+    /* Header */
+    .popup-panggilan-header {
+        min-height: 62px;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        color: #fff;
+        background: #10233f;
+    }
+
+    .popup-panggilan-title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 17px;
+        font-weight: 650;
+    }
+
+    /* Tombol X */
+    .popup-panggilan-close {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border: 0;
+        color: #fff;
+        background: transparent;
+        font-size: 29px;
+        font-weight: 300;
+        line-height: 1;
+        cursor: pointer;
+        opacity: .9;
+    }
+
+    .popup-panggilan-close:hover {
+        opacity: 1;
+    }
+
+    /* Isi popup */
+    .popup-panggilan-body {
+        min-height: 165px;
+        padding: 26px 28px 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 17px;
+        text-align: center;
+        color: #253247;
+    }
+
+    /* Ikon peringatan */
+    .popup-panggilan-icon {
+        width: 46px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        border: 3px solid #d6ad22;
+        border-radius: 50%;
+        color: #d6ad22;
+        font-size: 29px;
+        font-weight: 500;
+        line-height: 1;
+    }
+
+    /* Teks pesan */
+    .popup-panggilan-pesan {
+        max-width: 360px;
+        margin: 0;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+
+    /* Animasi */
+    @keyframes popupPanggilanMasuk {
+        from {
+            opacity: 0;
+            transform: translateY(8px) scale(.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Tampilan HP */
+    @media (max-width: 576px) {
         .popup-panggilan {
-            width: min(430px, 100%);
-            overflow: hidden;
-            background: #fff;
+            width: min(380px, 100%);
             border-radius: 12px;
-            box-shadow: 0 18px 50px rgba(0, 0, 0, .25);
-            animation: popupPanggilanMasuk .18s ease-out;
         }
 
-        /* Header */
         .popup-panggilan-header {
-            min-height: 62px;
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            color: #fff;
-            background: #10233f;
+            min-height: 56px;
+            padding: 12px 16px;
         }
 
         .popup-panggilan-title {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-size: 17px;
-            font-weight: 650;
+            font-size: 16px;
         }
 
-        /* Tombol X */
-        .popup-panggilan-close {
-            width: 30px;
-            height: 30px;
-            padding: 0;
-            border: 0;
-            color: #fff;
-            background: transparent;
-            font-size: 29px;
-            font-weight: 300;
-            line-height: 1;
-            cursor: pointer;
-            opacity: .9;
-        }
-
-        .popup-panggilan-close:hover {
-            opacity: 1;
-        }
-
-        /* Isi popup */
         .popup-panggilan-body {
-            min-height: 165px;
-            padding: 26px 28px 30px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 17px;
-            text-align: center;
-            color: #253247;
+            min-height: 145px;
+            padding: 22px 18px;
+            gap: 14px;
         }
 
-        /* Ikon peringatan */
         .popup-panggilan-icon {
-            width: 46px;
-            height: 46px;
-            display: grid;
-            place-items: center;
-            border: 3px solid #d6ad22;
-            border-radius: 50%;
-            color: #d6ad22;
-            font-size: 29px;
-            font-weight: 500;
-            line-height: 1;
+            width: 42px;
+            height: 42px;
+            font-size: 26px;
         }
 
-        /* Teks pesan */
         .popup-panggilan-pesan {
-            max-width: 360px;
-            margin: 0;
-            font-size: 15px;
-            font-weight: 500;
-            line-height: 1.5;
-            white-space: pre-line;
+            font-size: 14px;
         }
+    }
 
-        /* Animasi */
-        @keyframes popupPanggilanMasuk {
-            from {
-                opacity: 0;
-                transform: translateY(8px) scale(.98);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        /* Tampilan HP */
-        @media (max-width: 576px) {
-            .popup-panggilan {
-                width: min(380px, 100%);
-                border-radius: 12px;
-            }
-
-            .popup-panggilan-header {
-                min-height: 56px;
-                padding: 12px 16px;
-            }
-
-            .popup-panggilan-title {
-                font-size: 16px;
-            }
-
-            .popup-panggilan-body {
-                min-height: 145px;
-                padding: 22px 18px;
-                gap: 14px;
-            }
-
-            .popup-panggilan-icon {
-                width: 42px;
-                height: 42px;
-                font-size: 26px;
-            }
-
-            .popup-panggilan-pesan {
-                font-size: 14px;
-            }
-        }     :root {
+        :root {
             --navy: #10233f;
             --navy-light: #193456;
             --yellow: #f5c542;
@@ -1428,7 +1430,6 @@ function muatStatusAudio() {
                 : [];
 
             if (statusPanggilanServer === 'PLAYING') {
-                audioGuard = true;
                 audioPernahPlaying = true;
             }
 
@@ -1942,20 +1943,6 @@ async function aksiPanggilan(callback) {
     if (!semuaDisplaySiap) {
         tampilkanNotifikasiPanggilan(
             pesanDisplayBelumSiap()
-        );
-
-        return;
-    }
-
-    /* Cegah panggilan baru saat panggilan sebelumnya masih berjalan. */
-    if (
-        statusPanggilanServer === 'PLAYING' ||
-        audioGuard
-    ) {
-        tampilkanNotifikasiPanggilan(
-            pesanPanggilanServer ||
-            'Harap tunggu, panggilan sebelumnya sedang berlangsung.',
-            'peringatan'
         );
 
         return;
