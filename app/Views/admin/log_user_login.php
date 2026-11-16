@@ -1,54 +1,35 @@
 <?= $this->extend('layouts/admin') ?>
 
 <?= $this->section('pageTitle') ?>
+    <div class="pk-heading">
+        <div>
+            <h1>Log User Login</h1>
+            <p>Pantau riwayat login, logout, dan aktivitas akses pengguna pada sistem MPP Kota Tangerang.</p>
+        </div>
+    </div>
 <?= $this->endSection() ?>
 
 <?= $this->section('styles') ?>
 <style>
 /* ==================== HEADER ==================== */
 
-.page-header {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:15px;
-    margin-bottom:22px;
+.pk-heading {
+    margin-bottom: 22px;
 }
 
-.page-title h1 {
-    color:var(--navy);
-    font-size:25px;
-    font-weight:700;
-    margin:0;
+.pk-heading h1 {
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 0;
 }
 
-.page-title p {
-    color:var(--muted);
-    font-size:12px;
-    margin:6px 0 0;
+.pk-heading p {
+    color: var(--muted);
+    font-size: 12.5px;
+    margin: 5px 0 0;
 }
 
-.btn-export {
-    height:40px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    padding:0 15px;
-    border:1px solid #cfe7d8;
-    border-radius:8px;
-    background:#edf8f0;
-    color:var(--green);
-    font-size:12px;
-    font-weight:600;
-    cursor:pointer;
-    white-space:nowrap;
-    transition:.2s ease;
-}
-
-.btn-export:hover {
-    background:#d9f0e1;
-}
 /* ==================== STATISTIK ==================== */
 
 .log-stat-grid {
@@ -56,7 +37,7 @@
     grid-template-columns:repeat(4,minmax(0,1fr));
     gap:15px;
     margin-bottom:20px;
-}
+} 
 
 .log-stat-card {
     background:#fff;
@@ -108,6 +89,7 @@
     color:var(--navy);
     font-size:22px;
 }
+
 /* ==================== FILTER ==================== */
 
 .log-filter-card {
@@ -140,6 +122,7 @@
     display:block;
     color:var(--muted);
     font-size:11px;
+    font-weight:700;
     margin-bottom:6px;
 }
 
@@ -160,27 +143,24 @@
     box-shadow:0 0 0 3px rgba(16,35,63,.06);
 }
 
-.log-btn-reset {
+.log-btn-search {
     height:39px;
-    padding:0 13px;
-    border:1px solid var(--border);
+    padding:0 18px;
+    border:0;
     border-radius:7px;
-    background:#fff;
-    color:#667085;
+    background:var(--navy);
+    color:#fff;
     font-size:12px;
+    font-weight:600;
     cursor:pointer;
     white-space:nowrap;
+    transition:.2s ease;
 }
 
-.log-btn-reset:hover {
-    background:#f7f8fa;
+.log-btn-search:hover {
+    background:#1c3558;
 }
 
-.log-filter-note {
-    margin-top:12px;
-    color:var(--muted);
-    font-size:11px;
-}
 /* ==================== TABEL ==================== */
 
 .log-table-card {
@@ -191,7 +171,7 @@
 }
 
 .log-table-header {
-    padding:17px 20px;
+    padding:13px 18px;
     border-bottom:1px solid var(--border);
     display:flex;
     align-items:center;
@@ -201,31 +181,15 @@
 
 .log-table-header h3 {
     color:var(--navy);
-    font-size:15px;
+    font-size:14px;
+    font-weight:700;
     margin:0;
 }
 
 .log-table-header p {
     color:var(--muted);
-    font-size:11px;
+    font-size:11.5px;
     margin:5px 0 0;
-}
-
-.log-live-label {
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:6px 9px;
-    border-radius:6px;
-    background:#edf8f0;
-    color:var(--green);
-    font-size:10px;
-    font-weight:700;
-    white-space:nowrap;
-}
-
-.log-live-label i {
-    font-size:7px;
 }
 
 .log-table-responsive {
@@ -246,7 +210,7 @@
     border-bottom:1px solid var(--border);
     font-size:11px;
     font-weight:700;
-    text-align:left;
+    text-align:center;
     white-space:nowrap;
 }
 
@@ -256,6 +220,13 @@
     border-bottom:1px solid #edf0f3;
     font-size:12px;
     vertical-align:middle;
+    text-align:center;
+}
+
+/* Kolom pengguna tetap rata kiri dengan jarak yang nyaman */
+.log-table td:nth-child(2) {
+    text-align:left;
+    padding-left:22px;
 }
 
 .log-table tbody tr:hover td {
@@ -269,6 +240,7 @@
 .log-user {
     display:flex;
     align-items:center;
+    justify-content:flex-start;
     gap:10px;
 }
 
@@ -408,71 +380,90 @@
     justify-content:space-between;
     gap:10px;
 }
+
 /* ==================== MODAL DETAIL ==================== */
+
 #logDetailModal .modal-content {
     border:none;
     border-radius:10px;
     overflow:hidden;
 }
+
 #logDetailModal .modal-header {
     background:var(--navy);
     color:#fff;
     border:none;
     padding:16px 20px;
 }
+
 #logDetailModal .modal-title {
     font-size:16px;
     font-weight:700;
 }
+
 #logDetailModal .btn-close {
     filter:brightness(0) invert(1);
 }
+
 #logDetailModal .modal-body {
     padding:22px;
 }
+
 #logDetailModal .detail-item {
     padding:12px 0;
     border-bottom:1px solid var(--border);
 }
+
 #logDetailModal .detail-item:last-child {
     border-bottom:none;
 }
+
 #logDetailModal .detail-label {
     display:block;
     color:var(--muted);
     font-size:11px;
     margin-bottom:5px;
 }
+
 #logDetailModal .detail-value {
     color:var(--text);
     font-size:13px;
     font-weight:600;
     overflow-wrap:anywhere;
 }
+
+/* ==================== RESPONSIVE ==================== */
+
 @media(max-width:1200px) {
     .log-filter-grid {
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
+
     .log-stat-grid {
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
 }
+
 @media(max-width:800px) {
     .page-header {
         align-items:flex-start;
         flex-direction:column;
     }
+
     .log-filter-grid {
         grid-template-columns:1fr;
     }
-    .btn-export {
+
+    .log-btn-search {
         width:100%;
     }
 }
+
 @media(max-width:550px) {
     .log-stat-grid {
         grid-template-columns:1fr;
     }
+
     .log-table-footer {
         flex-direction:column;
     }
@@ -481,15 +472,6 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
-<div class="page-header">
-    <div class="page-title">
-        <h1>Log User Login</h1>
-        <p>Pantau riwayat login, logout, dan aktivitas akses pengguna pada sistem MPP Kota Tangerang.</p>
-    </div>
-    <button type="button" class="btn-export" id="logExportBtn">
-        <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
-    </button>
-</div>
 
 <!-- STATISTIK -->
 <div class="log-stat-grid">
@@ -570,15 +552,10 @@
             <input type="date" id="logFilterTanggal" class="log-filter-control">
         </div>
 
-        <button type="button" class="log-btn-reset" id="logResetBtn">
-            <i class="bi bi-arrow-counterclockwise"></i>
-            Reset
+        <button type="button" class="log-btn-search" id="logSearchBtn">
+            <i class="bi bi-search"></i>
+            Cari Data
         </button>
-    </div>
-
-    <div class="log-filter-note">
-        <i class="bi bi-info-circle"></i>
-        Gunakan filter untuk menemukan riwayat akses pengguna secara lebih cepat.
     </div>
 </div>
 
@@ -589,10 +566,6 @@
             <h3>Riwayat Login Pengguna</h3>
             <p>Catatan aktivitas masuk dan keluar dari sistem.</p>
         </div>
-        <span class="log-live-label">
-            <i class="bi bi-circle-fill"></i>
-            Riwayat Aktivitas
-        </span>
     </div>
 
     <div class="log-table-responsive">
@@ -676,106 +649,268 @@
 <script>
 (() => {
     'use strict';
+
     const endpoint = <?= json_encode(site_url('admin/log-user-login/data'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const el = id => document.getElementById(id);
     const body = el('logTableBody');
+
     let semuaLog = [];
     let hasilFilter = [];
 
+    // Filter yang sedang diterapkan.
+    let filterAktif = {
+        kata: '',
+        instansi: '',
+        aktivitas: '',
+        tanggal: ''
+    };
+
     // Mengamankan teks sebelum ditampilkan di tabel.
     function escapeHTML(value) {
-        return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&':'&amp;',
+            '<':'&lt;',
+            '>':'&gt;',
+            '"':'&quot;',
+            "'":'&#039;'
+        }[ch]));
     }
 
     function formatTanggal(tanggal) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal || '')) return '-';
-        return new Date(tanggal + 'T00:00:00').toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'});
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal || '')) {
+            return '-';
+        }
+
+        return new Date(tanggal + 'T00:00:00').toLocaleDateString(
+            'id-ID',
+            {
+                day:'2-digit',
+                month:'short',
+                year:'numeric'
+            }
+        );
     }
 
     function isiStatistik() {
         el('logTotal').textContent = semuaLog.length;
-        el('logLogin').textContent = semuaLog.filter(x => x.aktivitas === 'Login Berhasil').length;
-        el('logLogout').textContent = semuaLog.filter(x => x.aktivitas === 'Logout').length;
-        el('logGagal').textContent = semuaLog.filter(x => x.aktivitas === 'Login Gagal').length;
+
+        el('logLogin').textContent = semuaLog.filter(
+            x => x.aktivitas === 'Login Berhasil'
+        ).length;
+
+        el('logLogout').textContent = semuaLog.filter(
+            x => x.aktivitas === 'Logout'
+        ).length;
+
+        el('logGagal').textContent = semuaLog.filter(
+            x => x.aktivitas === 'Login Gagal'
+        ).length;
     }
 
     function isiInstansi() {
         const select = el('logFilterInstansi');
         const lama = select.value;
-        const daftar = [...new Set(semuaLog.map(x => x.instansi).filter(x => x && x !== '-'))].sort((a,b) => a.localeCompare(b, 'id'));
-        select.replaceChildren(new Option('Semua Instansi', ''));
-        daftar.forEach(nama => select.add(new Option(nama, nama)));
-        if (daftar.includes(lama)) select.value = lama;
+
+        const daftar = [
+            ...new Set(
+                semuaLog
+                    .map(x => x.instansi)
+                    .filter(x => x && x !== '-')
+            )
+        ].sort((a, b) => a.localeCompare(b, 'id'));
+
+        select.replaceChildren(
+            new Option('Semua Instansi', '')
+        );
+
+        daftar.forEach(nama => {
+            select.add(new Option(nama, nama));
+        });
+
+        if (daftar.includes(lama)) {
+            select.value = lama;
+        }
+    }
+
+    // Mengambil nilai filter hanya ketika tombol Cari Data diklik.
+    function cariLog() {
+        filterAktif = {
+            kata: el('logSearch').value.toLowerCase().trim(),
+            instansi: el('logFilterInstansi').value,
+            aktivitas: el('logFilterAktivitas').value,
+            tanggal: el('logFilterTanggal').value
+        };
+
+        filterLog();
     }
 
     function filterLog() {
-        const kata = el('logSearch').value.toLowerCase().trim();
-        const instansi = el('logFilterInstansi').value;
-        const aktivitas = el('logFilterAktivitas').value;
-        const tanggal = el('logFilterTanggal').value;
+        const {kata, instansi, aktivitas, tanggal} = filterAktif;
+
         hasilFilter = semuaLog.filter(x =>
-            (String(x.username).toLowerCase().includes(kata) || String(x.ip).toLowerCase().includes(kata)) &&
+            (
+                String(x.username).toLowerCase().includes(kata) ||
+                String(x.ip).toLowerCase().includes(kata)
+            ) &&
             (!instansi || x.instansi === instansi) &&
             (!aktivitas || x.aktivitas === aktivitas) &&
             (!tanggal || x.tanggal === tanggal)
         );
+
         tampilkanTabel();
     }
 
     function tampilkanTabel() {
-        el('logResultInfo').textContent = `Menampilkan ${hasilFilter.length} dari ${semuaLog.length} aktivitas`;
+        el('logResultInfo').textContent =
+            `Menampilkan ${hasilFilter.length} dari ${semuaLog.length} aktivitas`;
+
         if (!hasilFilter.length) {
-            body.innerHTML = '<tr><td colspan="8"><div class="log-empty-content"><i class="bi bi-search"></i><strong>Data log tidak ditemukan</strong><span>Coba ubah kata pencarian atau filter yang digunakan.</span></div></td></tr>';
+            body.innerHTML = `
+                <tr>
+                    <td colspan="8">
+                        <div class="log-empty-content">
+                            <i class="bi bi-search"></i>
+                            <strong>Data log tidak ditemukan</strong>
+                            <span>Coba ubah kata pencarian atau filter yang digunakan.</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
             return;
         }
+
         body.innerHTML = hasilFilter.map((x, i) => {
-            const cls = x.aktivitas === 'Logout' ? 'logout' : (x.aktivitas === 'Login Gagal' ? 'failed' : 'login');
-            const ikon = cls === 'logout' ? 'bi-box-arrow-right' : (cls === 'failed' ? 'bi-shield-exclamation' : 'bi-box-arrow-in-right');
+            const cls = x.aktivitas === 'Logout'
+                ? 'logout'
+                : (x.aktivitas === 'Login Gagal' ? 'failed' : 'login');
+
+            const ikon = cls === 'logout'
+                ? 'bi-box-arrow-right'
+                : (cls === 'failed' ? 'bi-shield-exclamation' : 'bi-box-arrow-in-right');
+
             const nama = String(x.username || '-');
-            return `<tr>
-                <td>${i + 1}</td>
-                <td><div class="log-user"><div class="log-user-avatar">${escapeHTML(nama.charAt(0).toUpperCase())}</div><div><span class="log-user-name">${escapeHTML(nama)}</span><span class="log-user-desc">Akun pengguna</span></div></div></td>
-                <td><span class="log-instansi-badge">${escapeHTML(x.instansi)}</span></td>
-                <td><span class="log-activity ${cls}"><i class="bi ${ikon}"></i>${escapeHTML(x.aktivitas)}</span></td>
-                <td><span class="log-time-main">${escapeHTML(x.waktu)} WIB</span><span class="log-time-sub">${escapeHTML(formatTanggal(x.tanggal))}</span></td>
-                <td><span class="log-ip-address">${escapeHTML(x.ip)}</span></td>
-                <td>${escapeHTML(x.perangkat)}</td>
-                <td><button type="button" class="log-action-btn" data-log-id="${Number(x.id)}" title="Lihat detail" aria-label="Lihat detail log"><i class="bi bi-eye"></i></button></td>
-            </tr>`;
+
+            return `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>
+                        <div class="log-user">
+                            <div class="log-user-avatar">
+                                ${escapeHTML(nama.charAt(0).toUpperCase())}
+                            </div>
+                            <div>
+                                <span class="log-user-name">${escapeHTML(nama)}</span>
+                                <span class="log-user-desc">Akun pengguna</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="log-instansi-badge">${escapeHTML(x.instansi)}</span>
+                    </td>
+                    <td>
+                        <span class="log-activity ${cls}">
+                            <i class="bi ${ikon}"></i>
+                            ${escapeHTML(x.aktivitas)}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="log-time-main">${escapeHTML(x.waktu)} WIB</span>
+                        <span class="log-time-sub">${escapeHTML(formatTanggal(x.tanggal))}</span>
+                    </td>
+                    <td>
+                        <span class="log-ip-address">${escapeHTML(x.ip)}</span>
+                    </td>
+                    <td>${escapeHTML(x.perangkat)}</td>
+                    <td>
+                        <button
+                            type="button"
+                            class="log-action-btn"
+                            data-log-id="${Number(x.id)}"
+                            title="Lihat detail"
+                            aria-label="Lihat detail log"
+                        >
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
         }).join('');
     }
 
     // Mengambil riwayat asli dari API admin.
     async function muatLog() {
         try {
-            const res = await fetch(endpoint, {headers: {'Accept':'application/json'}, credentials:'same-origin', cache:'no-store'});
-            if (!res.ok) throw new Error(res.status === 403 ? 'Akses ditolak. Login sebagai admin.' : 'HTTP ' + res.status);
+            const res = await fetch(endpoint, {
+                headers: {
+                    'Accept':'application/json'
+                },
+                credentials:'same-origin',
+                cache:'no-store'
+            });
+
+            if (!res.ok) {
+                throw new Error(
+                    res.status === 403
+                        ? 'Akses ditolak. Login sebagai admin.'
+                        : 'HTTP ' + res.status
+                );
+            }
+
             const json = await res.json();
-            if (!json.status || !Array.isArray(json.data)) throw new Error(json.message || 'Format data tidak valid.');
+
+            if (!json.status || !Array.isArray(json.data)) {
+                throw new Error(
+                    json.message || 'Format data tidak valid.'
+                );
+            }
+
             semuaLog = json.data;
+
             isiStatistik();
             isiInstansi();
             filterLog();
+
         } catch (error) {
             console.error('Gagal memuat log:', error);
-            body.innerHTML = `<tr><td colspan="8"><div class="log-empty-content"><i class="bi bi-exclamation-triangle"></i><strong>Gagal mengambil riwayat login</strong><span>${escapeHTML(error.message)}</span></div></td></tr>`;
+
+            body.innerHTML = `
+                <tr>
+                    <td colspan="8">
+                        <div class="log-empty-content">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Gagal mengambil riwayat login</strong>
+                            <span>${escapeHTML(error.message)}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
             el('logResultInfo').textContent = 'Gagal memuat data';
         }
     }
 
-    ['logSearch','logFilterInstansi','logFilterAktivitas','logFilterTanggal'].forEach(id => {
-        el(id).addEventListener(id === 'logSearch' ? 'input' : 'change', filterLog);
-    });
-    el('logResetBtn').addEventListener('click', () => {
-        ['logSearch','logFilterInstansi','logFilterAktivitas','logFilterTanggal'].forEach(id => el(id).value = '');
-        filterLog();
+    // Terapkan filter melalui tombol Cari Data.
+    el('logSearchBtn').addEventListener('click', cariLog);
+
+    // Enter pada kolom pencarian juga menjalankan pencarian.
+    el('logSearch').addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            cariLog();
+        }
     });
 
+    // Detail aktivitas.
     body.addEventListener('click', event => {
         const btn = event.target.closest('[data-log-id]');
+
         if (!btn) return;
-        const log = semuaLog.find(x => Number(x.id) === Number(btn.dataset.logId));
+
+        const log = semuaLog.find(
+            x => Number(x.id) === Number(btn.dataset.logId)
+        );
+
         if (!log) return;
+
         const data = {
             Username: log.username,
             Instansi: log.instansi,
@@ -784,31 +919,18 @@
             IP: log.ip,
             Perangkat: log.perangkat,
             Status: log.status,
-            Logout: log.aktivitas === 'Logout' ? `${formatTanggal(log.tanggal)}, ${log.waktu} WIB` : '-'
+            Logout: log.aktivitas === 'Logout'
+                ? `${formatTanggal(log.tanggal)}, ${log.waktu} WIB`
+                : '-'
         };
-        Object.entries(data).forEach(([id, value]) => el('logDetail' + id).textContent = value || '-');
-        bootstrap.Modal.getOrCreateInstance(el('logDetailModal')).show();
-    });
 
-    // Export hanya data yang lolos filter. Awalan formula spreadsheet dinetralkan.
-    el('logExportBtn').addEventListener('click', () => {
-        if (!hasilFilter.length) { alert('Tidak ada data untuk diekspor.'); return; }
-        const records = [['No','Username','Instansi','Aktivitas','Tanggal','Waktu','Alamat IP','Perangkat','Status','Waktu Logout']];
-        hasilFilter.forEach((x, i) => records.push([i+1,x.username,x.instansi,x.aktivitas,x.tanggal,x.waktu,x.ip,x.perangkat,x.status,x.logout]));
-        const csv = records.map(record => record.map(value => {
-            let str = String(value ?? '');
-            if (/^[\s\u0000-\u001f]*[=+@\-]/.test(str)) str = "'" + str;
-            return '"' + str.replace(/"/g, '""') + '"';
-        }).join(',')).join('\r\n');
-        const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'log-user-login.csv';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        Object.entries(data).forEach(([id, value]) => {
+            el('logDetail' + id).textContent = value || '-';
+        });
+
+        bootstrap.Modal
+            .getOrCreateInstance(el('logDetailModal'))
+            .show();
     });
 
     muatLog();

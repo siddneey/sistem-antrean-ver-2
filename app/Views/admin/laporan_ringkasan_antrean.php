@@ -64,11 +64,7 @@
 
     .filter-grid {
         display: grid;
-        grid-template-columns:
-            minmax(130px, 1fr)
-            minmax(130px, 1fr)
-            minmax(160px, 1.2fr)
-            auto;
+        grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 0.9fr);
         gap: 12px;
         align-items: end;
     }
@@ -101,6 +97,12 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 150px;
+    }
+
+    .filter-actions .btn-filter {
+        width: 100%;
+        min-width: 150px;
     }
 
     .btn-filter,
@@ -108,7 +110,7 @@
         height: 39px;
         border-radius: 7px;
         border: none;
-        padding: 0 13px;
+        padding: 0 16px;
         font-size: 12px;
         font-weight: 700;
         white-space: nowrap;
@@ -116,8 +118,9 @@
         align-items: center;
         justify-content: center;
         gap: 7px;
-        cursor: pointer;
         text-decoration: none;
+        width: auto;
+        flex-shrink: 0;
     }
 
     .btn-filter {
@@ -136,7 +139,7 @@
     }
 
     .btn-export:hover {
-        background: #4fa957;
+        background:rgb(52, 116, 57);
         color: #fff;
     }
 
@@ -205,6 +208,7 @@
     .report-table th:nth-child(2),
     .report-table td:nth-child(2) {
         width: 210px;
+        text-align: center;
     }
 
     .report-table th:nth-child(3),
@@ -251,16 +255,19 @@
         align-items: center;
         justify-content: center;
         border-radius: 6px;
-        background: #68bd70;
-        color: white;
+        background:rgb(43, 99, 47);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        transition: background-color .15s ease;
         text-decoration: none;
         font-size: 11px;
         font-weight: 600;
     }
 
     .btn-detail:hover {
-        background: #51a95b;
-        color: white;
+        background:rgb(71, 162, 77);
+        color: #fff;
     }
 
     .empty-row {
@@ -273,6 +280,10 @@
     @media (max-width: 1250px) {
         .filter-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .filter-actions .btn-filter {
+            min-width: 0;
         }
 
         .filter-actions {
@@ -306,6 +317,10 @@
 
         .filter-actions button {
             width: 100%;
+        }
+
+        .filter-actions .btn-filter {
+            min-width: 0;
         }
 
         .page-heading h1 {
@@ -406,9 +421,9 @@
 
     <div class="table-toolbar">
         <div>
-            <div class="table-toolbar-title">Ringkasan Antrean Selesai</div>
+            <div class="table-toolbar-title">Ringkasan Riwayat Layanan</div>
             <div class="table-toolbar-info">
-                Jumlah antrean selesai per instansi dan layanan
+                Jumlah riwayat layanan per instansi dan layanan
             </div>
         </div>
 
@@ -430,29 +445,35 @@
             <thead>
                 <tr>
                     <th>Instansi</th>
-                    <th>Jumlah Antrean Selesai</th>
+                    <th>Jumlah Riwayat Layanan</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
 
             <tbody>
+                
                 <?php
                     $ringkasanPerInstansi = [];
+                    $totalAntreanLaporan = 0;
 
                     foreach (($ringkasan ?? []) as $row) {
                         $key = (string) ($row['instansi_id'] ?? '');
 
                         if (!isset($ringkasanPerInstansi[$key])) {
                             $ringkasanPerInstansi[$key] = [
-                                'instansi_id' => $row['instansi_id'] ?? '',
+                                'instansi_id'   => $row['instansi_id'] ?? '',
                                 'nama_instansi' => $row['nama_instansi'] ?? 'Instansi',
-                                'total' => 0,
-                                'layanan' => [],
+                                'total'         => 0,
+                                'layanan'       => [],
                             ];
                         }
 
-                        $jumlah = (int) ($row['jumlah_antrean'] ?? 0);
+                        // Gunakan alias yang dikirim oleh controller.
+                        $jumlah = (int) ($row['total_riwayat'] ?? 0);
+
                         $ringkasanPerInstansi[$key]['total'] += $jumlah;
+                        $totalAntreanLaporan += $jumlah;
+
                         $ringkasanPerInstansi[$key]['layanan'][] = [
                             'nama_layanan' => $row['nama_layanan'] ?? 'Layanan tidak diketahui',
                             'jumlah_antrean' => $jumlah,
@@ -463,7 +484,7 @@
                 <?php if (empty($ringkasanPerInstansi)): ?>
                     <tr>
                         <td colspan="3" class="empty-row">
-                            Tidak ada data antrean selesai untuk filter yang dipilih.
+                            Tidak ada data riwayat layanan untuk filter yang dipilih.
                         </td>
                     </tr>
                 <?php else: ?>
@@ -502,7 +523,7 @@
             <tfoot>
                 <tr class="total-row">
                     <td>TOTAL</td>
-                    <td><?= number_format((int) ($totalAntrean ?? 0), 0, ',', '.') ?></td>
+                    <td><?= number_format($totalAntreanLaporan, 0, ',', '.') ?></td>
                     <td></td>
                 </tr>
             </tfoot>

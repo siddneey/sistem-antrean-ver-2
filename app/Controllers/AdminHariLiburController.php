@@ -41,10 +41,14 @@ class AdminHariLiburController extends BaseController
     {
         try {
             $hariLibur = $this->hariLiburModel
-                ->select(
-                    'id, tanggal, nama, jenis, keterangan, created_at, updated_at'
+                ->select('id, tanggal, nama, jenis, keterangan, created_at, updated_at')
+                ->orderBy(
+                    "CASE WHEN tanggal >= CURDATE() THEN 0 ELSE 1 END",
+                    'ASC',
+                    false
                 )
                 ->orderBy('tanggal', 'ASC')
+                ->orderBy('created_at', 'DESC')
                 ->findAll();
 
             return $this->response->setJSON([
@@ -98,76 +102,170 @@ class AdminHariLiburController extends BaseController
         // --------------------------------------------------------
         // Ambil data dari request
         // --------------------------------------------------------
-        $tanggal = trim((string) ($input['tanggal'] ?? ''));
+        $tanggalInput = $input['tanggal'] ?? [];
         $nama = trim((string) ($input['nama'] ?? ''));
         $jenis = trim((string) ($input['jenis'] ?? ''));
         $keterangan = trim((string) ($input['keterangan'] ?? ''));
 
-        // --------------------------------------------------------
-        // Validasi input
-        // --------------------------------------------------------
-        $pesanValidasi = $this->validasiData(
-            $tanggal,
-            $nama,
-            $jenis,
-            $keterangan
-        );
+        // Mendukung tanggal tunggal maupun beberapa tanggal.
+        if (is_string($tanggalInput)) {
+            $tanggalInput = [$tanggalInput];
+        }
 
-        if ($pesanValidasi !== null) {
+        if (!is_array($tanggalInput) || empty($tanggalInput)) {
             return $this->response
                 ->setStatusCode(400)
                 ->setJSON([
                     'status'  => false,
-                    'message' => $pesanValidasi,
+                    'message' => 'Pilih minimal satu tanggal hari libur.',
                 ]);
+        }
+
+        // --------------------------------------------------------
+        // Bersihkan dan hilangkan tanggal yang dipilih berulang
+        // --------------------------------------------------------
+        $tanggalList = [];
+
+        foreach ($tanggalInput as $tanggal) {
+            if (!is_string($tanggal)) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Format tanggal tidak valid.',
+                    ]);
+            }
+
+            $tanggal = trim($tanggal);
+
+            if (!in_array($tanggal, $tanggalList, true)) {
+                $tanggalList[] = $tanggal;
+            }
+        }
+
+        // --------------------------------------------------------
+        // Validasi nama, jenis, dan keterangan
+        // --------------------------------------------------------
+        if ($nama === '') {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Nama hari libur wajib diisi.',
+                ]);
+        }
+
+        if (!in_array($jenis, ['Nasional', 'Khusus MPP'], true)) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Jenis hari libur tidak valid.',
+                ]);
+        }
+
+        if (mb_strlen($nama) > 150 || mb_strlen($keterangan) > 255) {
+            return $this->response
+                ->setStatusCode(400)
+                ->setJSON([
+                    'status'  => false,
+                    'message' => 'Nama maksimal 150 karakter dan keterangan maksimal 255 karakter.',
+                ]);
+        }
+
+        // --------------------------------------------------------
+        // Validasi seluruh tanggal
+        // --------------------------------------------------------
+        foreach ($tanggalList as $tanggal) {
+            if (!$this->isValidDate($tanggal)) {
+                return $this->response
+                    ->setStatusCode(400)
+                    ->setJSON([
+                        'status'  => false,
+                        'message' => 'Format salah satu tanggal tidak valid.',
+                    ]);
+            }
         }
 
         try {
             // ----------------------------------------------------
-            // Cek apakah tanggal sudah terdaftar
+            // Periksa semua tanggal yang sudah terdaftar
             // ----------------------------------------------------
-            $existing = $this->hariLiburModel
-                ->where('tanggal', $tanggal)
-                ->first();
+            $tanggalDuplikat = $this->hariLiburModel
+                ->select('tanggal')
+                ->whereIn('tanggal', $tanggalList)
+                ->findAll();
 
-            if ($existing) {
+            if (!empty($tanggalDuplikat)) {
+                $daftarTanggal = array_column($tanggalDuplikat, 'tanggal');
+
+                $formatTanggal = array_map(
+                    fn($tanggal) => date('d-m-Y', strtotime($tanggal)),
+                    $daftarTanggal
+                );
+
                 return $this->response
                     ->setStatusCode(409)
                     ->setJSON([
                         'status'  => false,
-                        'message' => 'Tanggal tersebut sudah terdaftar sebagai hari libur.',
+                        'message' => 'Tanggal berikut sudah terdaftar sebagai hari libur: '
+                            . implode(', ', $formatTanggal),
                     ]);
             }
 
             // ----------------------------------------------------
-            // Simpan ke database
+            // Simpan seluruh tanggal menggunakan transaksi
             // ----------------------------------------------------
-            $berhasil = $this->hariLiburModel->insert([
-                'tanggal'    => $tanggal,
-                'nama'       => $nama,
-                'jenis'      => $jenis,
-                'keterangan' => $keterangan !== '' ? $keterangan : null,
-            ]);
+            $db = \Config\Database::connect();
+            $db->transBegin();
 
-            if ($berhasil === false) {
+            foreach ($tanggalList as $tanggal) {
+                $berhasil = $this->hariLiburModel->insert([
+                    'tanggal'    => $tanggal,
+                    'nama'       => $nama,
+                    'jenis'      => $jenis,
+                    'keterangan' => $keterangan !== '' ? $keterangan : null,
+                ]);
+
+                if ($berhasil === false) {
+                    $db->transRollback();
+
+                    return $this->response
+                        ->setStatusCode(422)
+                        ->setJSON([
+                            'status'  => false,
+                            'message' => 'Data hari libur gagal divalidasi atau disimpan.',
+                            'errors'  => $this->hariLiburModel->errors(),
+                        ]);
+                }
+            }
+
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+
                 return $this->response
-                    ->setStatusCode(422)
+                    ->setStatusCode(500)
                     ->setJSON([
                         'status'  => false,
-                        'message' => 'Data hari libur gagal divalidasi atau disimpan.',
-                        'errors'  => $this->hariLiburModel->errors(),
+                        'message' => 'Gagal menyimpan seluruh data hari libur.',
                     ]);
             }
+
+            $db->transCommit();
 
             return $this->response
                 ->setStatusCode(201)
                 ->setJSON([
                     'status'  => true,
-                    'message' => 'Hari libur berhasil ditambahkan.',
-                    'id'      => $this->hariLiburModel->getInsertID(),
+                    'message' => count($tanggalList) . ' tanggal hari libur berhasil ditambahkan.',
+                    'jumlah'  => count($tanggalList),
                 ]);
 
         } catch (\Throwable $e) {
+            if (isset($db) && $db->transStatus() !== false) {
+                $db->transRollback();
+            }
+
             log_message(
                 'error',
                 'AdminHariLiburController::create | ' . $e->getMessage()

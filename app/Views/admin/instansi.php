@@ -1072,12 +1072,20 @@ padding: 20px;
 
                                     <td>
 
-                                        <span class="status-badge">
+                                        <?php
+                                            $statusInstansi = strtolower(
+                                                trim((string) ($item['status'] ?? 'Aktif'))
+                                            );
 
-                                            <span class="status-dot"></span>
+                                            $isAktif = $statusInstansi === 'aktif';
+                                        ?>
 
-                                            Aktif
+                                        <span class="status-badge"
+                                            style="color: <?= $isAktif ? '#198754' : '#d9534f' ?>;">
+                                            <span class="status-dot"
+                                                style="background: <?= $isAktif ? '#198754' : '#d9534f' ?>;"></span>
 
+                                            <?= $isAktif ? 'Aktif' : 'Nonaktif' ?>
                                         </span>
 
                                     </td>

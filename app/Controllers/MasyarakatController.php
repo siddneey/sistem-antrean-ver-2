@@ -26,6 +26,7 @@ class MasyarakatController extends BaseController
         try {
             $instansi = db_connect()->table('instansi')
                 ->select('id, grup_id, nama_instansi, logo')
+                ->where('status', 'Aktif')
                 ->orderBy('nama_instansi', 'ASC')
                 ->get()->getResultArray();
 
@@ -74,13 +75,23 @@ class MasyarakatController extends BaseController
         try {
             $db = db_connect();
             $instansi = $db->table('instansi')
-                ->select('id, nama_instansi, logo')
-                ->where('id', $id)->get()->getRowArray();
+                ->select('id, nama_instansi, logo, status')
+                ->where('id', $id)
+                ->get()
+                ->getRowArray();
 
             if (!$instansi) {
                 return $this->response->setStatusCode(404)->setJSON([
                     'status' => false,
                     'message' => 'Instansi tidak ditemukan.',
+                ]);
+            }
+
+            if ($instansi['status'] !== 'Aktif') {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'status' => false,
+                    'message' => 'Instansi sedang nonaktif.',
+                    'bisa_ambil' => false,
                 ]);
             }
 
@@ -90,13 +101,12 @@ class MasyarakatController extends BaseController
             $terpakai = $this->antreanService->getJumlahAntreanPerKategori((int) $id, $kategori, $tanggal);
             $batas = (int) ($booking ? $pengaturan['kuota_booking'] : $pengaturan['kuota_layanan']);
             $tersisa = max(0, $batas - $terpakai);
-            $statusLoket = strtoupper((string) $pengaturan['status_loket']);
 
             $tanggalObj = new DateTimeImmutable($tanggal);
             $akhirPekan = (int) $tanggalObj->format('N') >= 6;
             $libur = $db->table('hari_libur')->where('tanggal', $tanggal)->countAllResults() > 0;
             $jamBuka = $booking || (date('H:i:s') >= '08:00:00' && date('H:i:s') <= '21:00:00');
-            $bisaAmbil = $statusLoket === 'BUKA' && $tersisa > 0 && !$akhirPekan && !$libur && $jamBuka;
+            $bisaAmbil = $instansi['status'] === 'Aktif' && $tersisa > 0 && !$akhirPekan && !$libur && $jamBuka;
 
             return $this->response->setJSON([
                 'status' => true,
@@ -106,7 +116,7 @@ class MasyarakatController extends BaseController
                     'logo' => $instansi['logo'] ?? null,
                     'tanggal' => $tanggal,
                     'kategori' => $kategori,
-                    'status_loket' => $statusLoket,
+                    'status_instansi' => $instansi['status'],
                     'kuota_aktif' => $batas,
                     'terpakai' => $terpakai,
                     'tersisa' => $tersisa,

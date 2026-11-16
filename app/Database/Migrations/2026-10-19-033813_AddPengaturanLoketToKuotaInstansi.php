@@ -23,12 +23,6 @@ class AddPengaturanLoketToKuotaInstansi extends Migration
                 'default'    => 30,
                 'after'      => 'kuota_layanan',
             ],
-            'status_loket' => [
-                'type'       => 'ENUM',
-                'constraint' => ['BUKA', 'TUTUP'],
-                'default'    => 'BUKA',
-                'after'      => 'kuota_booking',
-            ],
         ]);
     }
 
@@ -37,7 +31,6 @@ class AddPengaturanLoketToKuotaInstansi extends Migration
         $this->forge->dropColumn('kuota_instansi', [
             'kuota_layanan',
             'kuota_booking',
-            'status_loket',
         ]);
     }
 }

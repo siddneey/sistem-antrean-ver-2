@@ -13,6 +13,8 @@ class PetugasAntreanController extends BaseController
     public function __construct()
     {
         $this->pelayananService = new PelayananService();
+        $petugasId = $this->petugasId();
+        $this->validasiInstansiAktif($petugasId);
     }
 
     private function petugasId(): int
@@ -95,6 +97,27 @@ class PetugasAntreanController extends BaseController
                     'message' => 'Terjadi kesalahan saat memproses antrean.',
                     'csrfHash' => csrf_hash(),
                 ]);
+        }
+    }
+
+    private function validasiInstansiAktif(int $petugasId): void
+    {
+        $petugas = db_connect()->table('users u')
+            ->select('i.id, i.status')
+            ->join('instansi i', 'i.id = u.instansi_id')
+            ->where('u.id', $petugasId)
+            ->where('u.role_id', 2)
+            ->get()
+            ->getRowArray();
+
+        if (!$petugas) {
+            throw new RuntimeException('Data instansi petugas tidak ditemukan.');
+        }
+
+        if ($petugas['status'] !== 'Aktif') {
+            throw new RuntimeException(
+                'Instansi sedang nonaktif. Operasional antrean tidak dapat dilakukan.'
+            );
         }
     }
 
@@ -231,10 +254,19 @@ class PetugasAntreanController extends BaseController
                 $daftarDisplay[] = [
                     'id' => (int) $item['id'],
                     'nama_kelompok' => $item['nama_kelompok'],
+
                     'online' => $online,
                     'audio_ready' => $audioReady,
                     'ready' => $audioReady,
                     'status' => $status,
+
+                    // Umur heartbeat dalam detik
+                    'heartbeat_detik' => $heartbeat !== false
+                        ? ($selisih >= 0 ? $selisih : null)
+                        : null,
+
+                    // Nilai asli kesiapan audio dari database
+                    'display_audio_ready' => (int) $item['display_audio_ready'],
                 ];
             }
 

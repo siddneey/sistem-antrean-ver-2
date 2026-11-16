@@ -19,10 +19,9 @@ class KuotaInstansiModel extends Model
         'kuota_biasa',
         'kuota_prioritas',
 
-        // Pengaturan loket petugas
+        // Pengaturan kuota petugas
         'kuota_layanan',
         'kuota_booking',
-        'status_loket',
     ];
 
     protected $useTimestamps = true;

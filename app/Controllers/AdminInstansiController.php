@@ -19,6 +19,7 @@ class AdminInstansiController extends BaseController
         $this->instansiModel = new InstansiModel();
         $this->grupModel = new GrupModel();
         $this->layananModel = new LayananModel();
+        $this->sinkronkanAudioInstansi();
     }
 
     /**
@@ -33,6 +34,7 @@ class AdminInstansiController extends BaseController
                 'instansi.nama_instansi',
                 'instansi.logo',
                 'instansi.audio_nama',
+                'instansi.status',
                 'grup.nama_grup',
             ])
             ->join('grup', 'grup.id = instansi.grup_id', 'left')
@@ -164,6 +166,7 @@ class AdminInstansiController extends BaseController
                 'instansi.nama_instansi',
                 'instansi.logo',
                 'instansi.audio_nama',
+                'instansi.status',
                 'instansi.created_at',
                 'instansi.updated_at',
                 'grup.nama_grup',
@@ -540,7 +543,6 @@ class AdminInstansiController extends BaseController
         }
     }
 
-
     /**
      * POST /admin/instansi/{id}/audio
      * Upload atau mengganti rekaman nama instansi.
@@ -558,17 +560,11 @@ class AdminInstansiController extends BaseController
         }
 
         $file = $this->request->getFile('audio');
-        if (!$file || !$file->isValid()) {
+
+        if (!$file || !$file->isValid() || $file->hasMoved()) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status' => false,
                 'message' => 'File audio belum dipilih atau gagal diunggah.',
-            ]);
-        }
-
-        if ($file->hasMoved()) {
-            return $this->response->setStatusCode(400)->setJSON([
-                'status' => false,
-                'message' => 'File audio sudah dipindahkan.',
             ]);
         }
 
@@ -584,10 +580,14 @@ class AdminInstansiController extends BaseController
             'wav' => ['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave'],
             'ogg' => ['audio/ogg', 'application/ogg'],
         ];
+
         $extension = strtolower($file->getExtension());
         $mime = strtolower((string) $file->getMimeType());
 
-        if (!isset($allowed[$extension]) || !in_array($mime, $allowed[$extension], true)) {
+        if (
+            !isset($allowed[$extension]) ||
+            !in_array($mime, $allowed[$extension], true)
+        ) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status' => false,
                 'message' => 'Format audio harus MP3, WAV, atau OGG.',
@@ -595,45 +595,102 @@ class AdminInstansiController extends BaseController
         }
 
         $directory = FCPATH . 'audio/instansi';
-        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+
+        if (
+            !is_dir($directory) &&
+            !mkdir($directory, 0755, true) &&
+            !is_dir($directory)
+        ) {
             return $this->response->setStatusCode(500)->setJSON([
                 'status' => false,
-                'message' => 'Folder penyimpanan audio tidak dapat dibuat.',
+                'message' => 'Folder audio tidak dapat dibuat.',
             ]);
         }
 
-        // Nama file dibuat server, bukan dari nama file kiriman pengguna.
-        $newName = 'instansi_' . $id . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
-        try {
-            $file->move($directory, $newName);
+        /*
+        * Nama file mengikuti nama instansi.
+        * Contoh: BANK BANTEN.mp3
+        */
+        $namaFile = trim($instansi['nama_instansi']);
 
-            if (!$this->instansiModel->update($id, ['audio_nama' => $newName])) {
-                @unlink($directory . DIRECTORY_SEPARATOR . $newName);
-                return $this->response->setStatusCode(500)->setJSON([
-                    'status' => false,
-                    'message' => 'Gagal menyimpan nama file audio ke database.',
-                ]);
+        // Hilangkan karakter yang tidak aman untuk nama file.
+        $namaFile = preg_replace('/[^\pL\pN _-]/u', '', $namaFile);
+        $namaFile = trim($namaFile, " ._-");
+
+        if ($namaFile === '') {
+            $namaFile = 'instansi_' . $id;
+        }
+
+        $newName = $namaFile . '.' . $extension;
+
+        // File sementara agar file lama tidak langsung hilang.
+        $tempName = 'upload_' . $id . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+        $tempPath = $directory . DIRECTORY_SEPARATOR . $tempName;
+        $targetPath = $directory . DIRECTORY_SEPARATOR . $newName;
+
+        try {
+            $file->move($directory, $tempName);
+
+            if (!is_file($tempPath)) {
+                throw new \RuntimeException('File sementara gagal disimpan.');
             }
 
-            // Hapus rekaman lama setelah database berhasil diperbarui.
-            if (!empty($instansi['audio_nama'])) {
-                $oldPath = $directory . DIRECTORY_SEPARATOR . basename($instansi['audio_nama']);
-                if (is_file($oldPath)) {
-                    @unlink($oldPath);
+            /*
+            * Hapus file lama milik instansi jika berbeda dari target.
+            * File hanya dihapus dari folder audio/instansi.
+            */
+            $oldName = basename((string) ($instansi['audio_nama'] ?? ''));
+            $oldPath = $directory . DIRECTORY_SEPARATOR . $oldName;
+
+            if (
+                $oldName !== '' &&
+                $oldName !== $newName &&
+                is_file($oldPath)
+            ) {
+                if (!unlink($oldPath)) {
+                    throw new \RuntimeException('File audio lama gagal dihapus.');
                 }
+            }
+
+            // Jika nama target sudah ada, ganti dengan file baru.
+            if (is_file($targetPath) && $tempPath !== $targetPath) {
+                if (!unlink($targetPath)) {
+                    throw new \RuntimeException('File audio lama gagal diganti.');
+                }
+            }
+
+            if (!rename($tempPath, $targetPath)) {
+                throw new \RuntimeException('File audio baru gagal dipindahkan.');
+            }
+
+            // Simpan nama file yang baru ke database.
+            if (!$this->instansiModel->update($id, [
+                'audio_nama' => $newName,
+            ])) {
+                throw new \RuntimeException('Gagal menyimpan nama audio ke database.');
             }
 
             return $this->response->setJSON([
                 'status' => true,
-                'message' => 'Audio nama instansi berhasil diunggah.',
+                'message' => 'Audio instansi berhasil disimpan.',
                 'audio_nama' => $newName,
-                'audio_url' => base_url('audio/instansi/' . rawurlencode($newName)),
+                'audio_url' => base_url(
+                    'audio/instansi/' . rawurlencode($newName)
+                ),
             ]);
+
         } catch (Throwable $e) {
-            log_message('error', 'Gagal mengunggah audio instansi: {error}', ['error' => $e->getMessage()]);
+            if (is_file($tempPath)) {
+                @unlink($tempPath);
+            }
+
+            log_message('error', 'Gagal upload audio instansi: {error}', [
+                'error' => $e->getMessage(),
+            ]);
+
             return $this->response->setStatusCode(500)->setJSON([
                 'status' => false,
-                'message' => 'Gagal mengunggah audio instansi.',
+                'message' => 'Gagal menyimpan audio instansi.',
             ]);
         }
     }
@@ -657,21 +714,119 @@ class AdminInstansiController extends BaseController
         if (empty($instansi['audio_nama'])) {
             return $this->response->setStatusCode(404)->setJSON([
                 'status' => false,
-                'message' => 'Instansi ini belum memiliki rekaman audio.',
+                'message' => 'Instansi belum memiliki audio.',
             ]);
         }
 
-        $path = FCPATH . 'audio/instansi/' . basename($instansi['audio_nama']);
+        $namaFile = basename($instansi['audio_nama']);
+        $path = FCPATH . 'audio/instansi/' . $namaFile;
+
         if (!is_file($path)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'status' => false,
-                'message' => 'File audio tidak ditemukan di server.',
+                'message' => 'File audio tidak ditemukan.',
             ]);
         }
 
-        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $safeName = url_title($instansi['nama_instansi'], '-', true) ?: 'instansi';
-        return $this->response->download($path, null)->setFileName($safeName . '.' . $extension);
+        return $this->response
+            ->download($path, null)
+            ->setFileName($namaFile);
     }
 
+    /**
+     * Normalisasi nama untuk pencocokan file audio.
+     * Mengabaikan huruf besar/kecil dan spasi.
+     */
+    private function normalisasiNamaAudio(string $nama): string
+    {
+        $nama = trim($nama);
+
+        // Hanya hapus ekstensi audio yang benar-benar dikenal.
+        $nama = preg_replace('/\.(mp3|wav|ogg)$/i', '', $nama);
+
+        // Samakan huruf besar dan kecil.
+        $nama = mb_strtolower($nama, 'UTF-8');
+
+        // Hilangkan titik, spasi, strip, underscore, dan pemisah lainnya.
+        $nama = preg_replace('/[^\p{L}\p{N}]/u', '', $nama);
+
+        return $nama;
+    }
+
+    /**
+     * Sinkronisasi file audio dengan data instansi.
+     */
+    private function sinkronkanAudioInstansi(): void
+    {
+        $folder = FCPATH . 'audio/instansi';
+
+        if (!is_dir($folder)) {
+            return;
+        }
+
+        $files = glob($folder . '/*');
+
+        if ($files === false) {
+            return;
+        }
+
+        $daftarAudio = [];
+
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+            if (!in_array($extension, ['mp3', 'wav', 'ogg'], true)) {
+                continue;
+            }
+
+            $namaFile = basename($file);
+            $key = $this->normalisasiNamaAudio($namaFile);
+
+            if ($key === '') {
+                continue;
+            }
+
+            // Tandai jika ada lebih dari satu file dengan nama setara.
+            if (array_key_exists($key, $daftarAudio)) {
+                $daftarAudio[$key] = null;
+            } else {
+                $daftarAudio[$key] = $namaFile;
+            }
+        }
+
+        $instansi = $this->instansiModel->findAll();
+
+        foreach ($instansi as $item) {
+            $key = $this->normalisasiNamaAudio(
+                $item['nama_instansi']
+            );
+
+            $namaAudio = $daftarAudio[$key] ?? null;
+
+            // Lewati jika tidak ditemukan atau nama file ambigu.
+            if ($namaAudio === null) {
+                continue;
+            }
+
+            $pathAudio = $folder . DIRECTORY_SEPARATOR . $namaAudio;
+
+            if (!is_file($pathAudio)) {
+                continue;
+            }
+
+            // Jika nama file yang cocok sudah terdaftar, tidak perlu update.
+            if (($item['audio_nama'] ?? '') === $namaAudio) {
+                continue;
+            }
+
+            // Daftarkan file yang cocok ke database.
+            $this->instansiModel->update($item['id'], [
+                'audio_nama' => $namaAudio,
+            ]);
+        }
+    }
 }

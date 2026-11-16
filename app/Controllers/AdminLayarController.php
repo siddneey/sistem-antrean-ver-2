@@ -3,20 +3,17 @@
 namespace App\Controllers;
 
 use App\Models\IpAksesModel;
-use App\Models\StatusLayarModel;
 use App\Models\KelompokModel;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class AdminLayarController extends BaseController
 {
     protected IpAksesModel $ipModel;
-    protected StatusLayarModel $statusModel;
     protected KelompokModel $kelompokModel;
 
     public function __construct()
     {
-        $this->ipModel       = new IpAksesModel();
-        $this->statusModel   = new StatusLayarModel();
+        $this->ipModel = new IpAksesModel();
         $this->kelompokModel = new KelompokModel();
     }
 
@@ -27,6 +24,9 @@ class AdminLayarController extends BaseController
         ]);
     }
 
+    /**
+     * GET /admin/layar/ip
+     */
     public function daftarIp(): ResponseInterface
     {
         return $this->response->setJSON([
@@ -37,11 +37,16 @@ class AdminLayarController extends BaseController
         ]);
     }
 
+    /**
+     * POST /admin/layar/ip
+     */
     public function tambahIp(): ResponseInterface
     {
-        $ip = trim((string) $this->request->getPost('ip_address'));
+        $ip = trim(
+            (string) $this->request->getPost('ip_address')
+        );
 
-        if (! filter_var($ip, FILTER_VALIDATE_IP)) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
             return $this->response
                 ->setStatusCode(422)
                 ->setJSON([
@@ -50,7 +55,11 @@ class AdminLayarController extends BaseController
                 ]);
         }
 
-        if ($this->ipModel->where('ip_address', $ip)->first()) {
+        $existing = $this->ipModel
+            ->where('ip_address', $ip)
+            ->first();
+
+        if ($existing) {
             return $this->response
                 ->setStatusCode(409)
                 ->setJSON([
@@ -59,7 +68,9 @@ class AdminLayarController extends BaseController
                 ]);
         }
 
-        if (! $this->ipModel->insert(['ip_address' => $ip])) {
+        if (!$this->ipModel->insert([
+            'ip_address' => $ip,
+        ])) {
             return $this->response
                 ->setStatusCode(422)
                 ->setJSON([
@@ -68,17 +79,22 @@ class AdminLayarController extends BaseController
                 ]);
         }
 
-        return $this->response->setJSON([
-            'status'  => true,
-            'message' => 'IP address berhasil ditambahkan.',
-        ]);
+        return $this->response
+            ->setStatusCode(201)
+            ->setJSON([
+                'status'  => true,
+                'message' => 'IP address berhasil ditambahkan.',
+            ]);
     }
 
+    /**
+     * DELETE /admin/layar/ip/{id}
+     */
     public function hapusIp($id): ResponseInterface
     {
         $ip = $this->ipModel->find($id);
 
-        if (! $ip) {
+        if (!$ip) {
             return $this->response
                 ->setStatusCode(404)
                 ->setJSON([
@@ -95,34 +111,66 @@ class AdminLayarController extends BaseController
         ]);
     }
 
+    /**
+     * GET /admin/layar/status
+     *
+     * Mengambil status Display dari heartbeat tabel kelompok.
+     */
     public function statusLayar(): ResponseInterface
     {
         $kelompok = $this->kelompokModel
-            ->select('id, nama_kelompok')
-            ->orderBy('id', 'ASC')
+            ->select([
+                'id',
+                'nama_kelompok',
+                'display_heartbeat_at',
+                'display_audio_ready',
+                'display_session_token',
+            ])
+            ->orderBy('nama_kelompok', 'ASC')
             ->findAll();
 
+        $sekarang = time();
         $hasil = [];
 
         foreach ($kelompok as $item) {
-            $status = $this->statusModel
-                ->where('kelompok_id', $item['id'])
-                ->first();
+            $heartbeatAt = !empty($item['display_heartbeat_at'])
+                ? strtotime($item['display_heartbeat_at'])
+                : false;
 
-            $lastSeen = $status['last_seen'] ?? null;
+            $umurHeartbeat = $heartbeatAt !== false
+                ? $sekarang - $heartbeatAt
+                : -1;
 
-            $aktif = $lastSeen !== null
-                && strtotime($lastSeen) !== false
-                && strtotime($lastSeen) >= time() - 60;
+            // Samakan dengan batas online di DisplayController.
+            $online = (
+                $heartbeatAt !== false
+                && $umurHeartbeat >= 0
+                && $umurHeartbeat <= 15
+                && !empty($item['display_session_token'])
+            );
+
+            $audioReady = (
+                $online
+                && (int) $item['display_audio_ready'] === 1
+            );
+
+            if (!$online) {
+                $status = 'OFFLINE';
+            } elseif (!$audioReady) {
+                $status = 'BELUM_SIAP';
+            } else {
+                $status = 'SIAP';
+            }
 
             $hasil[] = [
                 'kelompok_id'    => (int) $item['id'],
                 'nama_kelompok'  => $item['nama_kelompok'],
-                'login_terakhir' => $status['login_terakhir'] ?? null,
-                'last_seen'      => $lastSeen,
-                'aktif'          => $aktif,
-                'login'          => $status !== null
-                    && ! empty($status['login_terakhir']),
+                'login'          => $online,
+                'aktif'          => $online,
+                'audio_ready'    => $audioReady,
+                'status'         => $status,
+                'login_terakhir' => $item['display_heartbeat_at'],
+                'last_seen'      => $item['display_heartbeat_at'],
             ];
         }
 

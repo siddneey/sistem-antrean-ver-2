@@ -63,6 +63,7 @@ class AntreanService
             $batas = $booking ? $kuota['kuota_booking'] : $kuota['kuota_layanan'];
             $terpakai = $this->getJumlahAntreanPerKategori($instansiId, $kategori, $tanggal);
 
+            /*
             if ($kuota['status_loket'] === 'TUTUP') {
                 $this->db->transRollback();
                 return [
@@ -71,6 +72,7 @@ class AntreanService
                     'data' => ['tanggal' => $tanggal, 'status_loket' => 'TUTUP'],
                 ];
             }
+            */
 
             if ($terpakai >= $batas) {
                 $this->db->transRollback();
@@ -199,25 +201,29 @@ class AntreanService
         if ($instansiId < 1) {
             throw new InvalidArgumentException('Instansi tidak valid.');
         }
+
         $tanggal ??= date('Y-m-d');
         $hariIni = date('Y-m-d');
+
         $dataTanggal = $this->db->table('kuota_instansi')
             ->where('instansi_id', $instansiId)
             ->where('tanggal', $tanggal)
-            ->get()->getRowArray();
+            ->get()
+            ->getRowArray();
 
-        // Pilihan A: booking menggunakan nilai terbaru dari pengaturan petugas
-        // (baris paling baru sampai hari ini), bukan default tanggal tujuan.
+        // Pengaturan booking menggunakan nilai terbaru sampai hari ini.
         $pengaturanAktif = $this->db->table('kuota_instansi')
             ->where('instansi_id', $instansiId)
             ->where('tanggal <=', $hariIni)
             ->orderBy('tanggal', 'DESC')
             ->orderBy('id', 'DESC')
-            ->get(1)->getRowArray();
+            ->get(1)
+            ->getRowArray();
 
         $dataHariIni = $tanggal === $hariIni ? $dataTanggal : null;
-        $kuotaBooking = $pengaturanAktif['kuota_booking'] ?? self::KUOTA_BOOKING_DEFAULT;
-        $statusLoket = $pengaturanAktif['status_loket'] ?? 'BUKA';
+
+        $kuotaBooking = $pengaturanAktif['kuota_booking']
+            ?? self::KUOTA_BOOKING_DEFAULT;
 
         return [
             'instansi_id' => $instansiId,
@@ -226,7 +232,6 @@ class AntreanService
             'kuota_prioritas' => (int) ($dataTanggal['kuota_prioritas'] ?? self::KUOTA_PRIORITAS_DEFAULT),
             'kuota_layanan' => (int) ($dataHariIni['kuota_layanan'] ?? self::KUOTA_LAYANAN_DEFAULT),
             'kuota_booking' => (int) $kuotaBooking,
-            'status_loket' => strtoupper((string) $statusLoket),
         ];
     }
 
@@ -322,10 +327,22 @@ class AntreanService
 
     protected function validasiInstansi(int $instansiId): array
     {
-        $instansi = $this->db->table('instansi')->where('id', $instansiId)->get()->getRowArray();
+        $instansi = $this->db->table('instansi')
+            ->where('id', $instansiId)
+            ->get()
+            ->getRowArray();
+
         if (!$instansi) {
             throw new RuntimeException('Instansi tidak ditemukan.');
         }
+
+        if ($instansi['status'] !== 'Aktif') {
+            throw new RuntimeException(
+                'Instansi sedang nonaktif dan tidak dapat menerima antrean.'
+            );
+        }
+
         return $instansi;
     }
+    
 }

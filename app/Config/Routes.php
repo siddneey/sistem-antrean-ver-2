@@ -38,6 +38,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
         ['filter' => 'role:1']
     );
 
+    // Menyimpan status
+    $routes->post(
+        'instansi/(:num)/status',
+        'AdminController::updateStatusInstansi/$1',
+        ['filter' => 'role:1']
+    );
 
     // =========================
     // LAPORAN PROSES ANTREAN
@@ -62,6 +68,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     $routes->get(
         'laporan-ringkasan-antrean',
         'AdminController::laporanRingkasanAntrean',
+        ['filter' => 'role:1']
+    );
+
+    $routes->get(
+        'laporan-ringkasan-antrean/export',
+        'AdminController::exportLaporanRingkasanAntrean',
         ['filter' => 'role:1']
     );
 
@@ -129,6 +141,12 @@ $routes->group('admin', ['filter' => 'auth'], static function ($routes) {
     $routes->get(
         'absensi-petugas',
         'AdminController::absensiPetugas',
+        ['filter' => 'role:1']
+    );
+
+    $routes->get(
+        'absensi-petugas/export',
+        'AdminController::exportAbsensiPetugas',
         ['filter' => 'role:1']
     );
 

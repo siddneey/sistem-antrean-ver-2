@@ -566,10 +566,11 @@
         }
 
         function tanganiKuotaTidakTersedia(data) {
-            if (data.status_loket === 'TUTUP') {
-                tampilkanPopupInformasi('Layanan belum dibuka oleh petugas!');
+            if (data.status_instansi === 'Nonaktif') {
+                tampilkanPopupInformasi('Instansi sedang tidak aktif. Silakan pilih instansi lain.');
                 return true;
             }
+
             if (data.bisa_ambil === false) {
                 if (jenisLayanan === 'HARI_INI') {
                     tampilkanPopupInformasi('Kuota antrean hari ini sudah habis. Silakan melakukan booking untuk tanggal pelayanan berikutnya.', true);
@@ -578,6 +579,7 @@
                 }
                 return true;
             }
+
             return false;
         }
 
@@ -736,7 +738,7 @@
                 throw new Error(hasil.message || 'Gagal memeriksa kuota.');
             }
             const data = hasil.data;
-            if (!['BUKA', 'TUTUP'].includes(data.status_loket) ||
+            if (!['Aktif', 'Nonaktif'].includes(data.status_instansi) ||
                 typeof data.bisa_ambil !== 'boolean') {
                 throw new Error('Respons API kuota belum sesuai. Periksa backend.');
             }
@@ -746,9 +748,11 @@
         function tampilkanInfoKuota(data) {
             const info = document.getElementById('informasiKuota');
             if (!info) return;
-            info.textContent = data.status_loket === 'TUTUP'
-                ? 'Loket sedang ditutup.'
+
+            info.textContent = data.status_instansi === 'Nonaktif'
+                ? 'Instansi sedang tidak aktif.'
                 : `Kuota ${data.kategori === 'BOOKING' ? 'booking' : 'hari ini'}: ${data.terpakai} dari ${data.kuota_aktif} terpakai, ${data.tersisa} tersisa.`;
+
             setTombolAntrean(data.bisa_ambil === true);
         }
 
@@ -943,7 +947,7 @@
                 const tanggalAPI = formatTanggalAPI(tanggalDipilih);
                 const kuota = await cekKuotaInstansi(instansiId, tanggalAPI);
                 tampilkanInfoKuota(kuota);
-                if (kuota.status_loket === 'TUTUP' || !kuota.bisa_ambil) {
+                if (kuota.status_instansi === 'Nonaktif' || !kuota.bisa_ambil) {
                     const modalValidasi = document.getElementById('modalValidasi');
                     modalValidasi.addEventListener('hidden.bs.modal', () => {
                         tanganiKuotaTidakTersedia(kuota);

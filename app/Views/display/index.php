@@ -1371,7 +1371,7 @@ function angkaFiles(nomor) {
                 (n - 10) + '.mp3'
             ),
             assetUrl(
-                AUDIO_INSTANSI,
+                AUDIO_UMUM,
                 'Belas.mp3'
             )
         ];

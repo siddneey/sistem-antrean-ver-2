@@ -119,50 +119,74 @@ class PetugasController extends BaseController
         ]);
     }
 
-    /** GET pengaturan aktif petugas. Pengaturan booking mengikuti entri terbaru. */
+    /** GET pengaturan kuota dan status instansi petugas. */
     public function pengaturanLoket()
     {
         $instansiId = $this->instansiPetugas();
+
         if ($instansiId === null) {
             return $this->tolak();
         }
 
         try {
-            $row = db_connect()->table('kuota_instansi')
-                ->select('kuota_layanan, kuota_booking, status_loket, tanggal')
+            $db = db_connect();
+
+            // Ambil pengaturan kuota terbaru yang berlaku.
+            $row = $db->table('kuota_instansi')
+                ->select('kuota_layanan, kuota_booking, tanggal')
                 ->where('instansi_id', $instansiId)
                 ->where('tanggal <=', date('Y-m-d'))
                 ->orderBy('tanggal', 'DESC')
+                ->orderBy('id', 'DESC')
                 ->limit(1)
                 ->get()
                 ->getRowArray();
+
+            // Ambil status dari tabel instansi.
+            $instansi = $db->table('instansi')
+                ->select('status')
+                ->where('id', $instansiId)
+                ->get()
+                ->getRowArray();
+
+            if (!$instansi) {
+                return $this->response->setStatusCode(404)->setJSON([
+                    'status' => false,
+                    'message' => 'Instansi tidak ditemukan.',
+                ]);
+            }
 
             return $this->response->setJSON([
                 'status' => true,
                 'data' => [
                     'kuota_layanan' => (int) ($row['kuota_layanan'] ?? 50),
                     'kuota_booking' => (int) ($row['kuota_booking'] ?? 30),
-                    'status_loket' => strtoupper((string) ($row['status_loket'] ?? 'BUKA')),
+                    'status_instansi' => $instansi['status'],
                 ],
             ]);
         } catch (Throwable $e) {
-            log_message('error', '[PengaturanLoket GET] {message}', ['message' => $e->getMessage()]);
+            log_message('error', '[PengaturanLoket GET] {message}', [
+                'message' => $e->getMessage(),
+            ]);
+
             return $this->response->setStatusCode(500)->setJSON([
                 'status' => false,
-                'message' => 'Gagal mengambil pengaturan loket.',
+                'message' => 'Gagal mengambil pengaturan instansi.',
             ]);
         }
     }
 
-    /** POST pengaturan petugas: kedua kuota independen. */
+    /** POST pengaturan kuota dan status instansi petugas. */
     public function simpanPengaturanLoket()
     {
         $instansiId = $this->instansiPetugas();
+
         if ($instansiId === null) {
             return $this->tolak();
         }
 
         $input = $this->request->getJSON(true);
+
         if (!is_array($input)) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status' => false,
@@ -171,15 +195,28 @@ class PetugasController extends BaseController
             ]);
         }
 
-        $layanan = filter_var($input['kuota_layanan'] ?? null, FILTER_VALIDATE_INT);
-        $booking = filter_var($input['kuota_booking'] ?? null, FILTER_VALIDATE_INT);
-        $status = strtoupper(trim((string) ($input['status_loket'] ?? '')));
+        $layanan = filter_var(
+            $input['kuota_layanan'] ?? null,
+            FILTER_VALIDATE_INT
+        );
 
-        if ($layanan === false || $layanan < 1 || $booking === false
-            || $booking < 0 || !in_array($status, ['BUKA', 'TUTUP'], true)) {
+        $booking = filter_var(
+            $input['kuota_booking'] ?? null,
+            FILTER_VALIDATE_INT
+        );
+
+        $status = trim((string) ($input['status_instansi'] ?? ''));
+
+        if (
+            $layanan === false ||
+            $layanan < 1 ||
+            $booking === false ||
+            $booking < 0 ||
+            !in_array($status, ['Aktif', 'Nonaktif'], true)
+        ) {
             return $this->response->setStatusCode(400)->setJSON([
                 'status' => false,
-                'message' => 'Pengaturan loket tidak valid.',
+                'message' => 'Pengaturan instansi tidak valid.',
                 'csrfHash' => csrf_hash(),
             ]);
         }
@@ -187,36 +224,65 @@ class PetugasController extends BaseController
         try {
             $db = db_connect();
             $waktu = date('Y-m-d H:i:s');
+
+            $db->transBegin();
+
+            // Simpan pengaturan kuota berdasarkan tanggal.
             $db->query(
                 'INSERT INTO kuota_instansi
-                    (instansi_id, tanggal, kuota_layanan, kuota_booking, status_loket, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE
+                    (instansi_id, tanggal, kuota_layanan, kuota_booking, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
                     kuota_layanan = VALUES(kuota_layanan),
                     kuota_booking = VALUES(kuota_booking),
-                    status_loket = VALUES(status_loket),
                     updated_at = VALUES(updated_at)',
-                [$instansiId, date('Y-m-d'), $layanan, $booking, $status, $waktu, $waktu]
+                [
+                    $instansiId,
+                    date('Y-m-d'),
+                    $layanan,
+                    $booking,
+                    $waktu,
+                    $waktu,
+                ]
             );
 
-            if ($db->affectedRows() < 0) {
-                throw new \RuntimeException('Gagal menyimpan pengaturan.');
+            // Perbarui status instansi yang sama dengan milik admin.
+            $db->table('instansi')
+                ->where('id', $instansiId)
+                ->update([
+                    'status' => $status,
+                    'updated_at' => $waktu,
+                ]);
+
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+
+                throw new \RuntimeException('Gagal menyimpan pengaturan instansi.');
             }
+
+            $db->transCommit();
 
             return $this->response->setJSON([
                 'status' => true,
                 'data' => [
                     'kuota_layanan' => $layanan,
                     'kuota_booking' => $booking,
-                    'status_loket' => $status,
+                    'status_instansi' => $status,
                 ],
                 'csrfHash' => csrf_hash(),
             ]);
         } catch (Throwable $e) {
-            log_message('error', '[PengaturanLoket] {message}', ['message' => $e->getMessage()]);
+            if (isset($db) && $db->transStatus() !== false) {
+                $db->transRollback();
+            }
+
+            log_message('error', '[PengaturanInstansi] {message}', [
+                'message' => $e->getMessage(),
+            ]);
+
             return $this->response->setStatusCode(500)->setJSON([
                 'status' => false,
-                'message' => 'Gagal menyimpan pengaturan loket.',
+                'message' => 'Gagal menyimpan pengaturan instansi.',
                 'csrfHash' => csrf_hash(),
             ]);
         }
