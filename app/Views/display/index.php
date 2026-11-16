@@ -1235,8 +1235,13 @@ const audioQueue = [];
 const queuedAudioIds = new Set();
 const completedAudioIds = new Set();
 
+
 function masukkanAntreanAudio(panggilan) {
     const id = callId(panggilan);
+
+    const tokenPanggilan = String(
+        panggilan?.token_panggilan || ''
+    ).trim();
 
     if (
         !audioEnabled ||
@@ -1244,6 +1249,15 @@ function masukkanAntreanAudio(panggilan) {
         queuedAudioIds.has(id) ||
         completedAudioIds.has(id)
     ) {
+        return;
+    }
+
+    if (!tokenPanggilan) {
+        console.error(
+            'Token panggilan tidak ditemukan:',
+            id,
+            panggilan
+        );
         return;
     }
 
@@ -1257,11 +1271,13 @@ function masukkanAntreanAudio(panggilan) {
 
     audioQueue.push({
         id,
-        files
+        files,
+        tokenPanggilan
     });
 
     void drainAudio();
 }
+
 
 /* ====================================================
    HEARTBEAT DISPLAY
@@ -1508,6 +1524,7 @@ function playFile(url) {
     });
 }
 
+
 async function drainAudio() {
     if (playing || !audioEnabled) {
         return;
@@ -1545,11 +1562,17 @@ async function drainAudio() {
 
             if (audioBerhasil) {
                 const berhasil = await konfirmasiAudioSelesai(
-                    panggilan.id
+                    panggilan.id,
+                    panggilan.tokenPanggilan
                 );
 
                 if (berhasil) {
                     completedAudioIds.add(panggilan.id);
+                } else {
+                    console.error(
+                        'Konfirmasi audio selesai gagal:',
+                        panggilan.id
+                    );
                 }
             } else {
                 console.error(
