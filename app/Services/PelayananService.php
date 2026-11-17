@@ -128,160 +128,192 @@ class PelayananService
      * Dengan demikian, dua Kelompok berbeda tetap dapat
      * menjalankan panggilan secara bersamaan.
      */
-    private function pastikanSemuaDisplaySiap(): void
-    {
-        $kelompok = $this->db->table('kelompok')
-            ->select([
-                'id',
-                'nama_kelompok',
-                'display_heartbeat_at',
-                'display_audio_ready',
-            ])
-            ->orderBy('id', 'ASC')
-            ->get()
-            ->getResultArray();
+  
+private function pastikanSemuaDisplaySiap(): void
+{
+    $kelompok = $this->db->query(
+        'SELECT
+            id,
+            nama_kelompok,
+            display_heartbeat_at,
+            display_audio_ready,
+            TIMESTAMPDIFF(
+                SECOND,
+                display_heartbeat_at,
+                NOW()
+            ) AS umur_heartbeat
+        FROM kelompok
+        ORDER BY id ASC'
+    )->getResultArray();
 
-        if (empty($kelompok)) {
-            throw new RuntimeException(
-                'Tidak ada Kelompok yang terdaftar.'
-            );
-        }
-
-        $sekarang = time();
-
-        foreach ($kelompok as $item) {
-            $namaKelompok = $item['nama_kelompok'];
-
-            $heartbeat = !empty($item['display_heartbeat_at'])
-                ? strtotime((string) $item['display_heartbeat_at'])
-                : false;
-
-            $selisih = $heartbeat !== false
-                ? $sekarang - $heartbeat
-                : PHP_INT_MAX;
-
-            if (
-                $heartbeat === false
-                || $selisih < 0
-                || $selisih > 15
-            ) {
-                throw new RuntimeException(
-                    'Display ' . $namaKelompok .
-                    ' sedang offline atau belum dibuka. ' .
-                    'Semua Display wajib aktif sebelum panggilan dilakukan.'
-                );
-            }
-
-            if ((int) $item['display_audio_ready'] !== 1) {
-                throw new RuntimeException(
-                    'Display ' . $namaKelompok .
-                    ' belum mengaktifkan Tes Suara. ' .
-                    'Semua Display wajib siap sebelum panggilan dilakukan.'
-                );
-            }
-        }
+    if (empty($kelompok)) {
+        throw new RuntimeException(
+            'Tidak ada Kelompok yang terdaftar.'
+        );
     }
 
-    /**
-     * Mengunci Kelompok suara pemanggil.
-     *
-     * NOWAIT memastikan request lain tidak menunggu
-     * transaksi panggilan sebelumnya selesai.
-     */
-    private function kunciSuaraKelompok(int $instansiId): int
-    {
-        $row = $this->db->table('instansi i')
-            ->select('g.kelompok_id')
-            ->join('grup g', 'g.id = i.grup_id')
-            ->where('i.id', $instansiId)
-            ->get()
-            ->getRowArray();
+    foreach ($kelompok as $item) {
+        $namaKelompok = $item['nama_kelompok'];
+        $umurHeartbeat = $item['umur_heartbeat'];
 
-        if (!$row || (int) $row['kelompok_id'] < 1) {
+        if (
+            $umurHeartbeat === null
+            || (int) $umurHeartbeat < 0
+            || (int) $umurHeartbeat > 15
+        ) {
             throw new RuntimeException(
-                'Kelompok suara instansi tidak ditemukan.'
+                'Display ' . $namaKelompok .
+                ' sedang offline atau belum dibuka. ' .
+                'Semua Display wajib aktif sebelum panggilan dilakukan.'
             );
         }
 
-        $kelompokId = (int) $row['kelompok_id'];
-
-        /*
-         * Periksa semua Display sebelum mengunci jalur suara.
-         */
-        $this->pastikanSemuaDisplaySiap();
-
-        /*
-         * NOWAIT:
-         * Jika baris Kelompok sedang dikunci transaksi lain,
-         * MySQL langsung mengembalikan error.
-         */
-        try {
-            $kelompok = $this->db->query(
-                'SELECT
-                    id,
-                    status_panggilan
-                 FROM kelompok
-                 WHERE id = ?
-                 FOR UPDATE NOWAIT',
-                [$kelompokId]
-            )->getRowArray();
-
-        } catch (Throwable $e) {
-            log_message(
-                'debug',
-                'Gagal memperoleh lock Kelompok ' .
-                $kelompokId . ': ' . $e->getMessage()
-            );
-
+        if ((int) $item['display_audio_ready'] !== 1) {
             throw new RuntimeException(
-                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
+                'Display ' . $namaKelompok .
+                ' belum mengaktifkan Tes Suara. ' .
+                'Semua Display wajib siap sebelum panggilan dilakukan.'
             );
         }
-
-        if (!$kelompok) {
-            throw new RuntimeException(
-                'Kelompok suara tidak ditemukan.'
-            );
-        }
-
-        /*
-         * Status PLAYING tidak boleh dilewati.
-         * Hanya audioSelesai() yang boleh mengubahnya menjadi IDLE.
-         */
-        if ($kelompok['status_panggilan'] === 'PLAYING') {
-            throw new RuntimeException(
-                'Harap tunggu, panggilan sebelumnya sedang berlangsung.'
-            );
-        }
-
-        return $kelompokId;
     }
+}
+
+
+ /**
+ * Mengunci Kelompok suara pemanggil.
+ *
+ * NOWAIT memastikan request lain tidak menunggu
+ * transaksi panggilan sebelumnya selesai.
+ *
+ * Lock PLAYING yang sudah kedaluwarsa akan dibersihkan
+ * agar tidak menghalangi panggilan berikutnya.
+ */
+   
+private function kunciSuaraKelompok(int $instansiId): int
+{
+    $row = $this->db->table('instansi i')
+        ->select('g.kelompok_id')
+        ->join('grup g', 'g.id = i.grup_id')
+        ->where('i.id', $instansiId)
+        ->get()
+        ->getRowArray();
+
+    if (!$row || (int) $row['kelompok_id'] < 1) {
+        throw new RuntimeException(
+            'Kelompok suara instansi tidak ditemukan.'
+        );
+    }
+
+    $kelompokId = (int) $row['kelompok_id'];
+
+    $this->pastikanSemuaDisplaySiap();
+
+    try {
+        $kelompok = $this->db->query(
+            'SELECT
+                id,
+                status_panggilan,
+                riwayat_panggilan_aktif_id,
+                token_panggilan,
+                batas_kunci,
+                CASE
+                    WHEN batas_kunci IS NOT NULL
+                     AND batas_kunci > NOW()
+                    THEN 1
+                    ELSE 0
+                END AS lock_masih_berlaku
+            FROM kelompok
+            WHERE id = ?
+            FOR UPDATE NOWAIT',
+            [$kelompokId]
+        )->getRowArray();
+
+    } catch (Throwable $e) {
+        log_message(
+            'error',
+            'Gagal memperoleh lock Kelompok ' .
+            $kelompokId . ': ' . $e->getMessage()
+        );
+
+        throw new RuntimeException(
+            'Harap tunggu, panggilan sebelumnya sedang diproses.'
+        );
+    }
+
+    if (!$kelompok) {
+        throw new RuntimeException(
+            'Kelompok suara tidak ditemukan.'
+        );
+    }
+
+    if ($kelompok['status_panggilan'] === 'PLAYING') {
+        if ((int) $kelompok['lock_masih_berlaku'] === 1) {
+            throw new RuntimeException(
+                'Panggilan sebelumnya masih berlangsung. ' .
+                'Harap tunggu hingga suara selesai.'
+            );
+        }
+
+        $berhasil = $this->db->table('kelompok')
+            ->where('id', $kelompokId)
+            ->where('status_panggilan', 'PLAYING')
+            ->update([
+                'status_panggilan' => 'IDLE',
+                'riwayat_panggilan_aktif_id' => null,
+                'token_panggilan' => null,
+                'batas_kunci' => null,
+            ]);
+
+        if (!$berhasil) {
+            throw new RuntimeException(
+                'Gagal membersihkan lock panggilan yang kedaluwarsa.'
+            );
+        }
+
+        log_message(
+            'warning',
+            'Lock panggilan Kelompok ' . $kelompokId .
+            ' kedaluwarsa dan berhasil dibersihkan.'
+        );
+    }
+
+    return $kelompokId;
+}
+
 
     /**
      * Menandai kelompok sedang memutar audio.
      */
-    private function mulaiSuaraKelompok(
-        int $kelompokId,
-        int $panggilanId
-    ): void {
-        $berhasil = $this->db->table('kelompok')
-            ->where('id', $kelompokId)
-            ->update([
-                'status_panggilan' => 'PLAYING',
-                'riwayat_panggilan_aktif_id' => $panggilanId,
-                'token_panggilan' => bin2hex(random_bytes(32)),
-                'batas_kunci' => date(
-                    'Y-m-d H:i:s',
-                    time() + 120
-                ),
-            ]);
+private function mulaiSuaraKelompok(
+    int $kelompokId,
+    int $panggilanId
+): string {
+    $token = bin2hex(random_bytes(32));
 
-        if (!$berhasil || $this->db->affectedRows() !== 1) {
-            throw new RuntimeException(
-                'Gagal mengunci jalur suara kelompok.'
-            );
-        }
+    $builder = $this->db->table('kelompok');
+
+    $builder->set(
+        'batas_kunci',
+        'DATE_ADD(NOW(), INTERVAL 120 SECOND)',
+        false
+    );
+
+    $berhasil = $builder
+        ->where('id', $kelompokId)
+        ->update([
+            'status_panggilan' => 'PLAYING',
+            'riwayat_panggilan_aktif_id' => $panggilanId,
+            'token_panggilan' => $token,
+        ]);
+
+    if (!$berhasil || $this->db->affectedRows() !== 1) {
+        throw new RuntimeException(
+            'Gagal mengunci jalur suara kelompok.'
+        );
     }
+
+    return $token;
+}
 
     /**
      * Mencatat setiap pemanggilan sebagai aksi PANGGIL.
@@ -330,6 +362,7 @@ class PelayananService
         int $petugasId,
         int $instansiId
     ): array {
+        log_message('error', 'MASUK panggilAntrean');
         $this->validasiPetugasInstansi(
             $petugasId,
             $instansiId
@@ -821,23 +854,29 @@ class PelayananService
             ->getResultArray();
     }
 
-    public function getAntreanSedangDilayani(
-        int $instansiId
-    ): array {
-        return $this->db->table('riwayat_layanan rl')
-            ->select(
-                'rl.*, a.nomor_antrean, a.tanggal_antrean, a.jenis_antrean'
-            )
-            ->join('antrean a', 'a.id = rl.antrean_id')
-            ->where('rl.instansi_id', $instansiId)
-            ->where('a.tanggal_antrean', date('Y-m-d'))
-            ->whereIn(
-                'rl.status_layanan',
-                ['DIPANGGIL', 'DILAYANI']
-            )
-            ->get()
-            ->getResultArray();
-    }
+ 
+public function getAntreanSedangDilayani(
+    int $instansiId
+): array {
+    return $this->db->table('riwayat_layanan rl')
+        ->select([
+            'rl.*',
+            'a.nomor_antrean',
+            'a.tanggal_antrean',
+            'a.jenis_antrean',
+            'i.nama_instansi',
+        ])
+        ->join('antrean a', 'a.id = rl.antrean_id')
+        ->join('instansi i', 'i.id = rl.instansi_id', 'left')
+        ->where('rl.instansi_id', $instansiId)
+        ->where('a.tanggal_antrean', date('Y-m-d'))
+        ->whereIn(
+            'rl.status_layanan',
+            ['DIPANGGIL', 'DILAYANI']
+        )
+        ->get()
+        ->getResultArray();
+}
 
     public function getAntreanSelanjutnya(
         int $instansiId

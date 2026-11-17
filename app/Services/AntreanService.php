@@ -63,17 +63,6 @@ class AntreanService
             $batas = $booking ? $kuota['kuota_booking'] : $kuota['kuota_layanan'];
             $terpakai = $this->getJumlahAntreanPerKategori($instansiId, $kategori, $tanggal);
 
-            /*
-            if ($kuota['status_loket'] === 'TUTUP') {
-                $this->db->transRollback();
-                return [
-                    'status' => false,
-                    'message' => 'Loket instansi sedang ditutup untuk pengambilan antrean.',
-                    'data' => ['tanggal' => $tanggal, 'status_loket' => 'TUTUP'],
-                ];
-            }
-            */
-
             if ($terpakai >= $batas) {
                 $this->db->transRollback();
                 return [
