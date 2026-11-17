@@ -65,14 +65,14 @@ class DisplayService
          * Ambil riwayat layanan hari ini secara global.
          */
         $rows = $this->db->table('riwayat_layanan rl')
-            ->select(
-                'rl.id AS riwayat_layanan_id, ' .
-                'rl.antrean_id, rl.instansi_id, ' .
-                'rl.status_layanan, rl.waktu_masuk, ' .
-                'a.nomor_antrean, a.jenis_antrean, ' .
-                'a.waktu_ambil, i.nama_instansi, ' .
-                'i.grup_id'
-            )
+           ->select(
+            'rl.id AS riwayat_layanan_id, ' .
+            'rl.antrean_id, rl.instansi_id, ' .
+            'rl.status_layanan, rl.waktu_masuk, ' .
+            'a.nomor_antrean, a.jenis_antrean, ' .
+            'a.waktu_ambil, i.nama_instansi, ' .
+            'i.grup_id, g.kelompok_id'
+        )
             ->join(
                 'antrean a',
                 'a.id = rl.antrean_id'
@@ -81,6 +81,11 @@ class DisplayService
                 'instansi i',
                 'i.id = rl.instansi_id'
             )
+            ->join(
+            'grup g',
+            'g.id = i.grup_id'
+            )
+
             ->where('a.tanggal_antrean', $tanggal)
             ->orderBy('rl.id', 'DESC')
             ->get()
@@ -191,6 +196,7 @@ class DisplayService
                     (int) $row['antrean_id'],
                 'instansi_id' => $instansiId,
                 'grup_id' => (int) $row['grup_id'],
+                'kelompok_id' => (int) $row['kelompok_id'],
                 'nomor_antrean' => $nomor,
                 'nomor' => $nomor,
                 'jenis_antrean' => $jenis,
@@ -226,6 +232,22 @@ class DisplayService
                 );
             }
         );
+
+        /*
+        * Pisahkan antrean menunggu berdasarkan Kelompok.
+        */
+        $antreanPerKelompok = [
+            1 => [],
+            2 => [],
+        ];
+
+        foreach ($antrean as $item) {
+            $idKelompok = (int) $item['kelompok_id'];
+
+            if (isset($antreanPerKelompok[$idKelompok])) {
+                $antreanPerKelompok[$idKelompok][] = $item;
+            }
+        }
 
         /*
          * Riwayat visual berdasarkan Grup.
@@ -359,6 +381,7 @@ if (
             'grup' => $grup,
             'instansi' => $instansi,
             'antrean' => $antrean,
+            'antrean_per_kelompok' => $antreanPerKelompok,
             'ringkasan' => array_values($ringkasan),
 
             'riwayat_panggilan' => $riwayatTampilan,

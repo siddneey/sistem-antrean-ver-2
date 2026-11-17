@@ -440,7 +440,7 @@ $jsonFlags = JSON_HEX_TAG
          * TANPA SCROLL
          */
 
-        .queue-columns {
+      .queue-columns {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
@@ -448,18 +448,20 @@ $jsonFlags = JSON_HEX_TAG
             min-height: 0;
             padding: 12px;
             background: #f7f9fd;
-            align-content: start;
+            align-content: stretch;
+            align-items: stretch;
+            box-sizing: border-box;
         }
 
-        .queue-table-wrap {
+       .queue-table-wrap {
             min-width: 0;
-            height: fit-content;
+            height: auto;
             overflow: visible;
             border: 1px solid #dfe7f5;
             border-radius: 9px;
             background: white;
+            box-sizing: border-box;
         }
-
         .queue-table {
             width: 100%;
             border-collapse: collapse;
@@ -471,14 +473,14 @@ $jsonFlags = JSON_HEX_TAG
             color: white;
         }
 
-        .queue-table th {
-            padding: 10px 6px;
+         .queue-table th {
+            padding: 8px 6px;
             font-size: 11px;
             text-align: center;
         }
 
         .queue-table td {
-            padding: 8px 6px;
+            padding: 5px 6px;
             font-size: 11px;
             line-height: 1.2;
             text-align: center;
@@ -816,13 +818,13 @@ $jsonFlags = JSON_HEX_TAG
     <div class="header-logos">
         <img
             class="header-logo"
-            src="<?= base_url('assets/images/logokota.png') ?>"
+            src="<?= base_url('assets/logokota.png') ?>"
             alt="Logo Kota Tangerang"
         >
 
         <img
             class="header-logo"
-            src="<?= base_url('assets/images/mpp2.png') ?>"
+            src="<?= base_url('assets/mpp2.png') ?>"
             alt="Logo MPP"
         >
     </div>
@@ -897,7 +899,7 @@ $jsonFlags = JSON_HEX_TAG
         <div class="group-card">
             <div>
                 <div class="group-caption">
-                    LAYAR DISPLAY AKTIF
+                    ANTREAN YANG SEDANG DILAYANI
                 </div>
 
                 <div
@@ -932,21 +934,18 @@ $jsonFlags = JSON_HEX_TAG
             <div class="queue-heading">
                 <div class="queue-title">
                     Daftar Antrean
-
-                    <div class="queue-subtitle">
-                        Informasi antrean layanan hari ini
-                    </div>
-                </div>
-
-                <div class="queue-count">
-                    <strong id="queueCount">0</strong>
-                    <span>antrean</span>
                 </div>
             </div>
 
             <div class="queue-columns">
 
                 <div class="queue-table-wrap">
+
+                    <div class="queue-group-title">
+                        <span class="queue-group-dot"></span>
+                        KELOMPOK 1
+                    </div>
+
                     <table class="queue-table">
                         <thead>
                             <tr>
@@ -955,12 +954,18 @@ $jsonFlags = JSON_HEX_TAG
                                 <th>Instansi / Loket</th>
                             </tr>
                         </thead>
-
                         <tbody id="queueLeft"></tbody>
                     </table>
+
                 </div>
 
                 <div class="queue-table-wrap">
+
+                    <div class="queue-group-title">
+                        <span class="queue-group-dot"></span>
+                        KELOMPOK 2
+                    </div>
+
                     <table class="queue-table">
                         <thead>
                             <tr>
@@ -969,9 +974,9 @@ $jsonFlags = JSON_HEX_TAG
                                 <th>Instansi / Loket</th>
                             </tr>
                         </thead>
-
                         <tbody id="queueRight"></tbody>
                     </table>
+
                 </div>
 
             </div>
@@ -1091,7 +1096,7 @@ const AUDIO_INSTANSI = <?= json_encode(
 ) ?>;
 
 const LOGO_BASE = <?= json_encode(
-    base_url('assets/images/'),
+    base_url('assets/'),
     $jsonFlags
 ) ?>;
 
@@ -1235,13 +1240,8 @@ const audioQueue = [];
 const queuedAudioIds = new Set();
 const completedAudioIds = new Set();
 
-
 function masukkanAntreanAudio(panggilan) {
     const id = callId(panggilan);
-
-    const tokenPanggilan = String(
-        panggilan?.token_panggilan || ''
-    ).trim();
 
     if (
         !audioEnabled ||
@@ -1249,15 +1249,6 @@ function masukkanAntreanAudio(panggilan) {
         queuedAudioIds.has(id) ||
         completedAudioIds.has(id)
     ) {
-        return;
-    }
-
-    if (!tokenPanggilan) {
-        console.error(
-            'Token panggilan tidak ditemukan:',
-            id,
-            panggilan
-        );
         return;
     }
 
@@ -1271,13 +1262,11 @@ function masukkanAntreanAudio(panggilan) {
 
     audioQueue.push({
         id,
-        files,
-        tokenPanggilan
+        files
     });
 
     void drainAudio();
 }
-
 
 /* ====================================================
    HEARTBEAT DISPLAY
@@ -1524,7 +1513,6 @@ function playFile(url) {
     });
 }
 
-
 async function drainAudio() {
     if (playing || !audioEnabled) {
         return;
@@ -1562,17 +1550,11 @@ async function drainAudio() {
 
             if (audioBerhasil) {
                 const berhasil = await konfirmasiAudioSelesai(
-                    panggilan.id,
-                    panggilan.tokenPanggilan
+                    panggilan.id
                 );
 
                 if (berhasil) {
                     completedAudioIds.add(panggilan.id);
-                } else {
-                    console.error(
-                        'Konfirmasi audio selesai gagal:',
-                        panggilan.id
-                    );
                 }
             } else {
                 console.error(
@@ -1719,9 +1701,9 @@ function renderCards(items) {
 
         track.style.animationDuration =
             Math.max(
-                32,
-                items.length * 10
-            ) + 's';
+                5,
+                items.length * 3
+            ) + 's'
 
         requestAnimationFrame(() => {
             if (track.dataset.html !== html) {
@@ -1851,19 +1833,20 @@ function render(data) {
 
     // ANTREAN MENUNGGU GLOBAL
 
-    const antrean = Array.isArray(data.antrean)
-        ? [...data.antrean]
+    const antreanPerKelompok = data.antrean_per_kelompok || {};
+
+    const antreanKiri = Array.isArray(antreanPerKelompok[1])
+        ? [...antreanPerKelompok[1]]
         : [];
 
-    /*
-     * Prioritas naik ke atas.
-     * Tidak ada warna khusus.
-     */
+    const antreanKanan = Array.isArray(antreanPerKelompok[2])
+        ? [...antreanPerKelompok[2]]
+        : [];
 
     const isPrioritas = row => {
-        const jenis = String(
-            row.jenis_antrean || ''
-        ).trim().toUpperCase();
+        const jenis = String(row.jenis_antrean || '')
+            .trim()
+            .toUpperCase();
 
         return jenis === 'PRIORITAS'
             || row.prioritas === true
@@ -1871,7 +1854,7 @@ function render(data) {
             || row.prioritas === '1';
     };
 
-    antrean.sort((a, b) => {
+    const urutkanAntrean = (a, b) => {
         const prioritasA = isPrioritas(a);
         const prioritasB = isPrioritas(b);
 
@@ -1879,35 +1862,33 @@ function render(data) {
             return prioritasA ? -1 : 1;
         }
 
-        return String(
-            a.waktu_masuk || a.jam || ''
-        ).localeCompare(
-            String(b.waktu_masuk || b.jam || '')
-        );
-    });
+        return String(a.waktu_masuk || a.jam || '')
+            .localeCompare(
+                String(b.waktu_masuk || b.jam || '')
+            );
+    };
 
-    // TOTAL SELURUH ANTREAN MENUNGGU
+    antreanKiri.sort(urutkanAntrean);
+    antreanKanan.sort(urutkanAntrean);
 
     $('queueCount').textContent = String(
-        antrean.length
+        antreanKiri.length + antreanKanan.length
     );
 
-    /*
-     * Maksimal 8 antrean:
-     * 4 tabel kiri
-     * 4 tabel kanan
-     */
+    const jumlahBarisTampil = antrean => {
+    const jumlahPrioritas = antrean.filter(isPrioritas).length;
 
-    const tampil = antrean.slice(0, 8);
+    return jumlahPrioritas >= 2 ? 3 : 4;
+    };
 
     renderRows(
         'queueLeft',
-        tampil.slice(0, 4)
+        antreanKiri.slice(0, jumlahBarisTampil(antreanKiri))
     );
 
     renderRows(
         'queueRight',
-        tampil.slice(4, 8)
+        antreanKanan.slice(0, jumlahBarisTampil(antreanKanan))
     );
 
     // RINGKASAN KHUSUS GRUP

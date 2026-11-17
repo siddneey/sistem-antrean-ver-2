@@ -423,7 +423,7 @@
          * TANPA SCROLL
          */
 
-        .queue-columns {
+       .queue-columns {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 12px;
@@ -431,16 +431,18 @@
             min-height: 0;
             padding: 12px;
             background: #f7f9fd;
-            align-content: start;
+            align-content: stretch;
+            align-items: stretch;
         }
 
-        .queue-table-wrap {
+       .queue-table-wrap {
             min-width: 0;
-            height: fit-content;
+            height: auto;
             overflow: visible;
             border: 1px solid #dfe7f5;
             border-radius: 9px;
             background: white;
+            box-sizing: border-box;
         }
 
         .queue-table {
@@ -454,14 +456,14 @@
             color: white;
         }
 
-        .queue-table th {
-            padding: 10px 6px;
+       .queue-table th {
+            padding: 8px 6px;
             font-size: 11px;
             text-align: center;
         }
 
         .queue-table td {
-            padding: 8px 6px;
+            padding: 5px 6px;
             font-size: 11px;
             line-height: 1.2;
             text-align: center;
