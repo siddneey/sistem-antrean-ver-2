@@ -1006,7 +1006,7 @@ const API_URL = <?= json_encode(
 ) ?>;
 
 const LOGO_BASE = <?= json_encode(
-    base_url('assets/images/'),
+    base_url('assets/'),
     JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
 ) ?>;
 

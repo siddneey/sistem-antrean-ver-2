@@ -697,7 +697,7 @@ $namaInstansi = (string) ($namaInstansi ?? 'Instansi tidak ditemukan');
 <header class="topbar">
     <div class="brand">
         <img
-            src="<?= base_url('assets/images/logokota.png') ?>"
+            src="<?= base_url('assets/logokota.png') ?>"
             class="brand-logo"
             alt="Logo Kota Tangerang"
         >

@@ -816,13 +816,13 @@ $jsonFlags = JSON_HEX_TAG
     <div class="header-logos">
         <img
             class="header-logo"
-            src="<?= base_url('assets/images/logokota.png') ?>"
+            src="<?= base_url('assets/logokota.png') ?>"
             alt="Logo Kota Tangerang"
         >
 
         <img
             class="header-logo"
-            src="<?= base_url('assets/images/mpp2.png') ?>"
+            src="<?= base_url('assets/mpp2.png') ?>"
             alt="Logo MPP"
         >
     </div>
@@ -1091,7 +1091,7 @@ const AUDIO_INSTANSI = <?= json_encode(
 ) ?>;
 
 const LOGO_BASE = <?= json_encode(
-    base_url('assets/images/'),
+    base_url('assets/'),
     $jsonFlags
 ) ?>;
 
@@ -1146,7 +1146,7 @@ const audioInstansi = {
     'PERKIM': 'PERKIM.mp3',
     'DUKCAPIL': 'DUKCAPIL.mp3',
     'DINAS LINGKUNGAN HIDUP':
-        'DINAS LINGKUNGAN HIDUP.mp3',
+    'DINAS LINGKUNGAN HIDUP.mp3',
     'BAZNAS': 'Baznas.mp3',
     'TASPEN': 'TASPEN.mp3',
     'ATR BPN': 'ATR BPN.mp3',
@@ -1177,10 +1177,10 @@ const logoMap = {
     'BANK BJB': 'bank bjb.png',
     'BAPENDA': 'bapenda.jpg',
     'BAZNAS': 'baznas.png',
-    'BNN': 'BNN.jpg',
+    'BNN': 'bnn-logo.png',
     'BPJS KESEHATAN': 'BPJS Kesehatan.png',
     'BPJS KETENAGAKERJAAN':
-        'BPJS Ketenagakerjaan.png',
+    'BPJS Ketenagakerjaan.png',
     'BPJS TK': 'BPJS Ketenagakerjaan.png',
     'BPOM': 'BPOM.png',
     'DISNAKER': 'disnaker.png',
@@ -1191,7 +1191,7 @@ const logoMap = {
     'PLN': 'PLN.png',
     'POLRES': 'polres.png',
     'PT POS INDONESIA': 'PT POS INDONESIA.jpg',
-    'SAMSAT': 'samsat.png',
+    'SAMSAT': 'samsat2.png',
     'TASPEN': 'taspen.png'
 };
 
@@ -1257,6 +1257,7 @@ function masukkanAntreanAudio(panggilan) {
 
     audioQueue.push({
         id,
+        token: panggilan.token_panggilan,
         files
     });
 
@@ -1545,7 +1546,8 @@ async function drainAudio() {
 
             if (audioBerhasil) {
                 const berhasil = await konfirmasiAudioSelesai(
-                    panggilan.id
+                    panggilan.id,
+                    panggilan.token
                 );
 
                 if (berhasil) {

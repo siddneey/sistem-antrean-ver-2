@@ -231,9 +231,24 @@ private function kunciSuaraKelompok(int $instansiId): int
     } catch (Throwable $e) {
         log_message(
             'error',
+            'DEBUG LOCK PANGGILAN: ' . json_encode([
+                'instansi_id' => $instansiId,
+                'kelompok_id' => $kelompokId,
+                'status_panggilan' => $kelompok['status_panggilan'] ?? null,
+                'batas_kunci' => $kelompok['batas_kunci'] ?? null,
+                'lock_masih_berlaku' => $kelompok['lock_masih_berlaku'] ?? null,
+                'waktu_database' => $this->db->query(
+                    'SELECT NOW() AS sekarang, DATABASE() AS database_aktif'
+                )->getRowArray(),
+            ])
+        );
+        /*
+        log_message(
+            'error',
             'Gagal memperoleh lock Kelompok ' .
             $kelompokId . ': ' . $e->getMessage()
         );
+        */
 
         throw new RuntimeException(
             'Harap tunggu, panggilan sebelumnya sedang diproses.'
